@@ -1,0 +1,660 @@
+﻿<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <title>Product App</title>
+    <script src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-2.0.3.min.js"></script>
+    <scipt src="/Scripts/angular.min.js"></scipt>
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.10/angular.min.js"></script>    
+    <script type="text/javascript" src="https://ajax.googleapis.com/ajax/libs/angularjs/1.2.10/angular-route.js"></script>
+    <script src="http://ajax.googleapis.com/ajax/libs/jquery/1.11.1/jquery.min.js"></script>
+    <!--<link rel="stylesheet" type="text/css" href="/Content/bootstrap.min.css" />-->
+    <!----<link rel="stylesheet" type="text/css" href="/Content/bootstrap.css" />-->
+    <link rel="stylesheet" type="text/css" href="/Content/scrolling-nav.css" />
+    <link rel="stylesheet" type="text/css" href="/Content/bootstraps.css" />
+    <link rel="stylesheet"type="text/css" href="/Fonts/font-awesome-4.4.0/css/font-awesome.min.css">
+    
+    <style>
+        .page-header
+        {
+border-width: 3px;
+border-color: #800000;
+text-align:left;
+
+        }
+        .page-header h3{
+            float:left;
+        }
+        .page {
+            border-bottom:solid;
+            border-bottom-color: #800000;
+            border-bottom-width: 2px;
+            text-align:left;
+            
+        }
+       
+        
+       p{
+           text-align:justify;
+       }
+     td{
+         margin-left:4px;
+     }
+         /*.nav navbar-nav{
+            padding-left:20px;
+            position: relative;
+            float:left;
+            display: table-cell;
+            vertical-align: middle;
+            margin-top: 6%;
+            margin-left: 5em;
+        }*/
+         table tr th {
+  width: 25%;
+}
+
+         
+         
+    </style>
+
+</head>
+<body id="page-top" data-spy="scroll" data-target=".navbar-fixed-top">
+    <!-- Navigation -->
+    <nav class="navbar navbar-default navbar-fixed-top" role="navigation">
+        <div class="container">
+            <div class="navbar-header page-scroll">
+                <a class="navbar-brand page-scroll" href="#page-top">
+                    <img id="navProfileImage" src="https://media.licdn.com/mpr/mpr/shrinknp_400_400/p/3/005/0b8/1f1/26b08d5.jpg" class="img-circle top-nav-img-full" alt="Jasmine Kaur">
+                </a>
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-ex1-collapse">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+            </div>
+            <!-- Collect the nav links, forms, and other content for toggling -->
+            <div class="collapse navbar-collapse navbar-ex1-collapse">
+                
+                <ul class="nav navbar-nav">
+                    <!-- Hidden li included to remove active class from about link when scrolled up past about section -->
+                    <li class="hidden">
+                        <a class="page-scroll" href="#page-top">Jasmine Kaur</a>
+                    </li>
+                    <li>
+                        <a class="page-scroll" href="#about">Academic</a>
+                    </li>
+                    <li>
+                        <a class="page-scroll" href="#services">Playground</a>
+                    </li>
+                    <li>
+                        <a class="page-scroll" href="#contact">References</a>
+                    </li>
+                </ul>
+            </div>
+            <!-- /.navbar-collapse -->
+        </div>
+        <!-- /.container -->
+    </nav>
+    <!-- Intro Section -->
+    <section id="intro" class="intro-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-12">
+                    <h1>Jasmine Kaur</h1>
+                    <!--<i class="fa fa-envelope"> jaskhundal@gmail.com </i>-->
+                    <!--<i class="fa fa-phone"> 0490 363 501</i>-->
+                    <h3 class="page-header">Objective</h3>
+                    <p>I am an enthusiastic, ambitious, passionate and technology focused graduate in computer science. I have developed a passion for web development and recently completed Diploma course at TAFE NSW, to further my skills in the field. I possess good skills developing web applications and databases. I am currently seeking a graduate/junior role to further my knowledge and gain valuable experience while working with experienced, motivated and professional mentors.</p>
+                    <h3 class="page-header">Technologies</h3>
+                    
+                    <p><strong>Experience with Technologies:</strong></p>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th></th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>HTML</td>
+                                <td>CSS3</td>
+                                <td>LESS</td>
+                            </tr>
+                            <tr>
+                                <td>Java Script</td>
+                                <td>jQuery</td>
+                                <td>Angular js</td>
+                            </tr>
+                            <tr>
+                                <td>C#</td>
+                                <td>ASP.NET MVC</td>
+                                <td>Web API</td>
+                            </tr>
+                            <tr>
+                                <td>SQL</td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+
+                        </tbody>
+                    </table>
+                    
+                    <p><strong>Database:</strong></p>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th class ="col-md-3"></th>
+                                <th class ="col-md-3"></th>
+                                <th class="col-md-3"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>SQL Server 2008</td>
+                                <td>MySQL</td>
+                                <td>LESS</td>
+                            </tr>
+                            </tbody>
+                        </table>
+
+                    
+                    <p><strong>Development Enviornment Tools:</strong></p>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th></th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td align="center">Visual Studio 2013</td>
+                                <td align="center">Dreamweaver</td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+
+                    <p><strong>Source Control:</strong></p>
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th></th>
+                                <th></th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td align="left">Team Foundation Server (TFS) 2012</td>
+                                <td></td>
+                                <td></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                    <p><strong>Azure:</strong></p>
+                   
+                    <dl class="dl-horizontal">
+                        <dt>Web API</dt>
+                        <dd><a href="https://www.linkedin.com/pub/jasmine-kaur/b3/99/2a9">My LinkedIn</a></dd>
+
+                    <dd><a href="http://jasminefirstapi.azurewebsites.net/api/productss">API call</a></dd>
+                    </dl>
+                    	
+                    <h3 class="page-header">Summary</h3>
+                    <p>I have recently graduated with a Diploma in Web based Design & Development from TAFE Ultimo. The studies at TAFE provided me with the knowledge and experience of developing web applications in Asp.NET MVC using C# and Sql server database.</p>
+                    <p>Since graduation, only a month ago, I have supplemented my knowledge in software development by exploring new technologies. I have been able to experiment and get hands on experience with Angular js, gulp task runner, creating css files using LESS and developing MVC Web API. I have deployed my first, very basic, Web API on Azure. In order to version my code, I am using TFS as my source control.</p>
+                    <p>Working with web technologies I have also gained the knowledge of tools like chrome web-development and fiddler which are essential for debugging.</p>
+                    <p>I also have experience creating wireframes for websites using Microsoft Visio.</p>
+                    
+                    <h3 class="page-header">Immigration/Work Status</h3>
+                    <p>Resident</p>
+                    </div>
+            </div>
+        </div>
+    </section>
+
+
+
+
+
+    <!-- Academic Section -->
+    <section id="about" class="about-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-12">
+                    <h1>Academics</h1>
+                    <h3 class="page-header">Education</h3>
+
+                    <table class="table table-hover">
+                        <!--<thead>
+                            <tr>
+                                <th class="col-md-3"></th>
+                                <th class="col-md-1">Year</th>
+
+                            </tr>
+                        </thead>-->
+                        <tbody>
+
+
+                            <tr>
+                                <td align="left" style="text-align: left">
+                                    <h3>Diploma in Website Design and Development</h3>
+                                    TAFE New South Wales <br />
+                                    Ultimo, Sydney
+                                </td>
+                                <td align="left"><h4>Aug 2015</h4></td>
+
+                            </tr>
+
+                            <tr>
+                                <td align="left">
+                                    <h3>Certificate IV in Website Design and Development</h3>
+                                    TAFE New South Wales <br />
+                                    Ultimo, Sydney
+                                </td>
+                                <td align="left"><h4>Year 2014</h4></td>
+
+                            </tr>
+
+                            <tr>
+                                <td align="left">
+                                    <h3>Bachelor in Computer Science</h3>
+                                    College of Engineering and Management <br />
+                                    Jalandhar, India
+                                </td>
+                                <td align="left"><h4>Year 2012</h4></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+    <!-- Playground Section -->
+    <section id="services" class="services-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-12">
+                    <h1>Playground</h1>
+                    <div id="angularExample" ng-app="myApp" class="form-inline">
+                        <h3 class="page-header"><img src="Content/Images/Angular.jpg" style="width: 80px; height: 80px" alt="Angular" /> Product cart</h3>
+                        <form name="myForm">
+                            <div ng-controller="Products">
+                                <div class="col-xs-3">
+                                    <label for="name">Product</label>
+                                    <input type="text" name="ProductName" ng-model="product.Name" ng-minlength="3"
+                                           ng-maxlength="26" required class="form-control" id="name" placeholder="Name" />
+                                    <span style="color:red" ng-show="myForm.ProductName.$dirty && myForm.ProductName.$invalid">
+                                        <span ng-show="myForm.ProductName.$error.required">ProductName is required.</span>
+                                    </span>
+                                    <p ng-show="myForm.ProductName.$error.minlength">ProductName is too short</p>
+                                    <p ng-show="myForm.ProductName.$error.maxlength">ProductName is too long</p>
+                                    <span ng-show="myForm.product.Name.$error.required">ProductName is required</span>
+                                </div>
+                                <div class="col-xs-2">
+                                    <label for="quantity">Quantity</label>
+                                    <input type="number" name="AmountQuantity" ng-model="product.Quantity" min="0" max="999" required class="form-control" id="quantity" placeholder="Qty" />
+                                    <span style="color:red" ng-show="myForm.AmountQuantity.$dirty && myForm.AmountQuantity.$invalid">
+                                        <span ng-show="myForm.AmountQuantity.$error.required">Quantity is required</span>
+                                    </span>
+                                    <span style="color:red" ng-show="myForm.AmountQuantity.$error.number">Not Valid number</span>
+                                </div>
+                                <div class="col-xs-2">
+                                    <label for="price">Price</label>
+                                    <input type="number" name="ProductPrice" ng-model="product.Price" min="0" max="999.99" required class="form-control" id="price" placeholder="$" ng-pattern="/^[0-9]+(\.[0-9]{1,2})?$/" step="0.10" />
+                                    <span style="color:red" ng-show="myForm.ProductPrice.$dirty && myForm.ProductPrice.$invalid">
+                                        <span ng-show="myForm.ProductPrice.$error.required">Price is required</span>
+                                        <span ng-show="myForm.ProductPrice.$error.pattern">Invalid price</span>
+                                    </span>
+                                </div>
+                                <input type="button" name="AddProduct" id="btnSubmit" value="Add" class="btn btn-primary" ng-click="addProduct()" />
+                               
+                                <table class="table" style="margin-top:5em;" ng-show="productList.length > 0">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 20px; text-align: right"></th>
+                                            <th style="text-align: left">Name</th>
+                                            <th style="text-align: center">Quantity</th>
+                                            <th style="text-align: center">Price</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr ng-repeat="x in productList">
+                                            <td colspan="4">
+                                                <table style="width:100%">
+                                                    <thead>
+                                                        <tr>
+                                                            <th style="width: 20px; text-align: right"></th>
+                                                            <th style="text-align: left"></th>
+                                                            <th style="text-align: center"></th>
+                                                            <th style="text-align: center"></th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tr>
+                                                        <td>
+                                                            <button type="button" class="btn" ng-class="x.item.ShowHide" style="float: left" ng-click="x.item.Toggle()">Google</button>
+                                                            <!--<a class="btn" ng-class="x.item.ShowHide" style="float: left" ng-click="x.item.Toggle()" ng-href="#here">Google</a>-->
+                                                            {{x.index}}
+                                                        </td>
+                                                        <td id="nameofproduct" style="text-align: left">{{x.item.Name}}</td>
+                                                        <td style="text-align: center" class="col-xs-offset-1">{{x.item.Quantity}}</td>
+                                                        <td style="text-align: center">{{x.item.PriceDisplay}}</td>
+                                                    </tr>
+                                                    <!--<tr ng-repeat="search in x.item.SearchList" ng-click="showClient(client)">
+                                                        <td><a href="{{search.item.Url}}">{{search.item.Url}}</a></td>
+                                                       
+                                                    </tr>-->
+                                                </table>
+                                            <div>
+                                                <!--<div class=" col-md-2 pull-left">
+                                                    <a ng-click="x.item.Toggle()" ng-href="#here">{{x.item.ShowHide}} Google</a>
+                                                </div>-->
+                                                <div class="col-md-8 pull-left"   ng-show="x.item.ShowSearch">
+
+                                                    <div class="col-md-12 pull-left" ng-repeat="search in x.item.SearchList"><a href="{{search.item.Url}}" class="pull-left" role="button" target="_blank">{{search.item.Label}}  </a></div>
+
+
+                                                </div>
+
+                                            </div>
+                                            </td>
+                                        </tr>
+
+                                    </tbody>
+                                </table>
+                                <!--<table class="table" style="margin-top:5em;" >
+                                    <thead>
+                                        <tr>
+                                            <th style="text-align:center">Searchlist</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr ng-repeat="y in x.item.SearchList">
+                                            <td>{{y.Label}}</td>
+                                        </tr>
+                                    </tbody>
+                                </table>-->
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- Contact Section -->
+    <section id="contact" class="contact-section">
+        <div class="container">
+            <div class="row">
+                <div class="col-lg-12">
+                    <h1>References</h1>
+                    <h3 class="page-header">Mentors</h3>
+                    <div class="col-xs-4">
+                        <h4>Harkulwant Hundal</h4>
+                        <h5>Infotrack - .Net Developer</h5>
+
+
+                        <!--<i class="fa fa-envelope"> Harkulwant@gmail.com </i>-->
+                        <!--<i class="fa fa-phone"> 0434 380 323</i>-->
+                    </div>
+                    <div class="col-xs-offset-8">
+                        <h4>Robby</h4>
+                        <h5>Financial Analyst</h5>
+                        <!--<i class="fa fa-envelope"> robby.s83@gmail.com </i>-->
+                        <!--<i class="fa fa-phone">  0404 087 154</i>-->
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+    <!-- jQuery -->
+    <script src="js/jquery.js"></script>
+    <!-- Bootstrap Core JavaScript -->
+    <script src="js/bootstrap.min.js"></script>
+    <!-- Scrolling Nav JavaScript -->
+    <script src="js/jquery.easing.min.js"></script>
+    <script src="js/scrolling-nav.js"></script>
+    <!--<div>
+        <h2>All Products</h2>
+        <ul id="Products" />
+    </div>
+    <div>
+        <h2>Search By Id</h2>
+        <input type="text" id="productId" size="5" />
+        <input type="button" value="Search" onclick="find();" />
+        <p id="product" />
+
+    </div>-->
+    <!----<div class="navbar navbar-default  navbar-fixed-top">
+        <div class="container">
+
+            <!----<div class="navbar-header">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" data-target=".navbar-collapse">
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+
+                <div class="collapse navbar-collapse">
+                    <img style="float: left" src="https://media.licdn.com/mpr/mpr/shrinknp_400_400/p/3/005/0b8/1f1/26b08d5.jpg" class="img-circle" alt="Jasmine Kaur" width="100" height="100">
+                    <div class="nav-helper">
+                        <ul class="nav navbar-nav">
+                            <li class="active"><a href="#">Home</a></li>
+                            <li class="#contact"><a href="#">Contact</a></li>
+                            <li class="#developer"><a href="#">Developer Name</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>-->
+           
+       
+
+    
+
+
+
+
+
+
+
+
+    <script>
+
+
+        // Examples of object vs function
+        //var anyObject = {
+           // prop1: '',
+            //prop3: ''
+        //};
+
+        //anyObject.prop2 = '';
+
+        //var funcObject = function () {
+            //this.Prop1 = '';
+            //this.Prop2 = '';
+        //};
+
+        //funcObject.Prop3 = '';
+
+
+        var productModel = function (data) {
+            var self = this;
+
+            self.Name = data.Name;
+            self.Quantity = data.Quantity;
+            self.Price = data.Price;
+            self.ShowHide = data.ShowHide;
+            self.PriceDisplay = data.PriceProduct();
+            self.SearchList = [];
+            self.ShowSearch = data.ShowSearch;
+            self.Toggle = data.Toggle;
+
+            var counter = 0;
+
+            $.each(data.SearchList, function (itm) {
+                counter++;
+                if (counter > 12)
+                {
+                    return false;
+                }
+                self.SearchList.push(data.SearchList[itm]);
+            });
+        };
+
+        var searchModel=function(data)
+        {
+            this.Label = data.Label;
+            this.Url = data.Url;
+        }
+
+        var app = angular.module('myApp', []);
+        app.controller('Products', function ($scope) {
+            var self = $scope;
+            
+
+            //by using self.product being reference type it was referning to the same location in the memory and changes the value
+
+            self.product = {
+                Name: "",
+                Price: "",
+                ShowSearch: false,
+                ShowHide :"btn-primary",
+                Toggle: function () {
+                    if (this.ShowSearch) {
+                        this.ShowSearch = false;
+                        this.ShowHide = "btn-primary"
+                    }
+                    else {
+                        this.ShowSearch = true;
+                        this.ShowHide = "btn-secondary"
+                    }
+                },
+                
+                SearchList:[],
+                Quantity: "",
+                toString: function () {
+                    if (this.Name && this.Quantity && this.Price)
+                        return this.Name + ' @ ' + this.Price + ' x ' + this.Quantity;
+
+                    return '';
+                },
+                isValid: function () {
+                    return this.Name.length > 0 && this.Quantity > 0 && this.Price > 0;
+                },
+                PriceProduct:function()
+                {
+                    return "$"+ parseFloat(this.Price).toFixed(2);
+                },
+            
+                lookup: function () {
+
+                    var jsonData = {
+                        Name: this.Name
+                    };
+
+                    $.ajax({
+                        url: "api/Product/Search",
+                        type: "POST",
+                        async: false, //run ajax non-async
+                        contentType: "application/json; charset=utf-8",
+                        data: JSON.stringify(jsonData),
+                        success: function (data) {
+                            self.product.SearchList = [];
+
+                            for (var i = 0; i < data.length - 1; i++) {
+                                var search = new searchModel(data[i]);
+
+                                self.product.SearchList.push({
+                                    item: search
+                                    //jQuery.extend(true, {}, self.product)
+                                });
+                            }
+                        },
+                        error: function () {
+                            console.log('error: lookup failed');
+                        }
+                    });
+                },
+            };
+
+            //self.$watch("product.ShowSearch", function (newValue, oldValue) {
+            //    if (newValue) {
+            //        this.ShowHide = "btn-primary"
+            //    }
+            //    else {
+            //        this.ShowHide = "btn-secondary"
+            //    }
+            //});
+
+
+            function watchProductSearch() {
+                return self.product.ShowSearch;
+            }
+
+            self.productList = [];
+            self.addProduct = function () {
+
+                if (!self.product.isValid()) {
+                    return;
+                }
+                self.product.lookup();
+                
+                var product = new productModel(self.product);
+
+                self.productList.push({
+                    index: self.productList.length + 1,
+                    item: product//jQuery.extend(true, {}, self.product)
+                });
+
+            }
+
+        });
+
+
+
+    </script>
+
+
+
+    <script>
+        var uri = 'api/Product';
+
+        $(document).ready(function () {
+            // Send an AJAX request
+            //$.getJSON(uri)
+            //.done(function (data) {
+            //    // On success, 'data' contains a list of products.
+            //    $.each(data, function (key, item) {
+            //        // Add a list item for the product.
+            //        $('<li>', { text: formatItem(item) }).appendTo($('#Products'));
+            //    });
+            //});
+        });
+
+        function formatItem(item) {
+            return item.Name + ': $' + item.Price;
+        }
+
+        function find() {
+            var id = $('#productId').val();
+            $.getJSON(uri + '/' + id)
+                .done(function (data) {
+                    $('#Products').text(formatItem(data));
+                })
+                .fail(function (jqXHR, textStatus, err) {
+                    $('#Products').text('Error: ' + err);
+                });
+        }
+    </script>
+</body>
+
+</html>
+
+
