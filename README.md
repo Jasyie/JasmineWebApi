@@ -23,6 +23,8 @@ Source Control:
 
 Azure Hosting 
 Resume	http://jasminefirstapi.azurewebsites.net/ 
-Web API	http://jasminefirstapi.azurewebsites.net/api/productss
-Linked In	https://www.linkedin.com/pub/jasmine-kaur/b3/99/2a9
+Web API	
+http://jasminefirstapi.azurewebsites.net/api/productss
+Linked In	
+https://www.linkedin.com/pub/jasmine-kaur/b3/99/2a9
 
