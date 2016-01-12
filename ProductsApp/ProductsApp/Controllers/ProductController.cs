@@ -82,7 +82,7 @@ namespace ProductsApp.Controllers
             string responseFromServer = reader.ReadToEnd();
 
             //pattern used to match li item with class g and pattern to match url and label
-            var pattern = "(?<items><li\\sclass=\\\"g\\\".*<\\/li>)";
+            var pattern = "(?<items><div\\sclass=\\\"g\\\".*<\\/div>)";
             var patternn = "(?<header><h3\\sclass=\\\"r\\\">)(<a\\s.+?\\\">)(?<label>.*?)(<\\/a>)(.*<cite>)(?<url>.*?)(<\\/cite>)";
 
             //matching the pattern and creating string collection to store their value
