@@ -223,8 +223,17 @@ REAL FUNCTION AlarmCountByEquipment(STRING EquipName, INT AlarmType = 0)
 STRING AlmFilter;
 REAL Count;
 
-AlmFilter = "Equipment=" + EquipName;
-Count = AlarmCount(AlarmType,AlmFilter);
+AlarmFilter = "Equipment=" + EquipName;
+Count = AlarmCount(AlarmType,AlarmFilter);
 
 RETURN Count
+END
+UNCTION
+SetEventAn()
+	int	hAn;
+
+	hAn = KeyGetCursor();
+	IF hAn <> -1 THEN
+		hEventAn = hAn;
+	END
 END
