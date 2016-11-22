@@ -1,0 +1,365 @@
+//-----------------------------------------------------------------------------
+//	FILE:		DBAccess.ci
+//
+//	DESCRIPTION:	This file contains various functions for Database Access 
+//					using ADO functions and displaying the disconnect recordset on
+//					the page.
+//
+//	NOTES:		The default connection is for Citect Alarm Database Server. User
+//				can also customize server name, user name and user password to 
+//				test connection to another SQL Server, and retrieve disconnected 
+//				recordsets afterwards.
+//				
+//				The alarming database connection string using ODBC driver:
+//					- Citect SCADA Debug Version (for internal use):
+//						DRIVER={ClearSCADA Driver};Server=AlarmServer1;UID=;PWD=;
+//
+//					- Citect SCADA Release Version:
+//						DRIVER={Citect Alarm Driver};Server=AlarmServer1;UID=;PWD=;
+//
+//				Alarming database tables:
+//					- CDBEventJournal				- history alarm instance table
+//
+//				User should NOT alter, drop or create tables against alarm server database!
+//
+//-----------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------
+//
+//	Constants
+//
+//-----------------------------------------------------------------------------
+
+// default connection settings for Alarm Server Database
+STRING sDefaultConnStr = "DRIVER={Citect Alarm Driver};Server=AlarmServer1;SystemsXml=";// default connection string template
+STRING sDefaultAlarmSelectCmd = "SELECT Severity,RecordTime,Source,Message,User,Category,Location FROM CDBEventJournal";// default select command on Alarm Server Database
+
+///////////////////////////////////////////////////////////////////////////////////////////
+
+// default connection settings to SQL Server Database
+STRING sDefaultSQLServerDatabase = "Master";											// default SQL Server Database Name
+STRING sDefaultSQLServerSelectCmd = "SELECT * FROM dbo.spt_values"						// default select command on SQL Server
+
+INT nMaxLength_DBAccessSidebar = 120;													// maximum length of string displayed on the sidebar on DatabaseAccess page
+
+
+//-----------------------------------------------------------------------------
+//
+//	Module Variables
+//
+//-----------------------------------------------------------------------------
+
+STRING sConnStr = "";		// connection string
+STRING sSelectCmd = "";		// select command
+INT	hRecordset = -1;		// the handle of current disconnected recordset
+INT nRowCount = 0;			// the row count of current query
+
+
+//-----------------------------------------------------------------------------
+//
+//	Database Query Functions
+//
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		TestADOConnection
+//
+//	DESCRIPTION:	Test that if the data source can be connected or not
+//
+//	RETURN VALUE:	1 if successful; otherwise 0
+//
+//	NOTES:			
+//-----------------------------------------------------------------------------
+INT
+FUNCTION	TestADOConnection()
+
+	INT hSQL = -1;								
+	STRING sServerName = PageGetStr("ADOServerName");	// server name
+	STRING sUsrName = PageGetStr("ADOUsrName");			// user name
+	STRING sUsrPwd = PageGetStr("ADOUsrPwd");			// user password
+	STRING sDatabase = PageGetStr("ADODatabase");		// database name
+	STRING _sConnStr = "";								// connection string buffer
+		
+	sConnStr = "";
+		
+	IF sServerName <> "" THEN			// user has specified the Server name, so testing the connection to a SQL Server
+	
+		_sConnStr = BuildSQLServerConnectionString(sServerName, sDatabase, sUsrName, sUsrPwd);			
+		sDatabase = sDefaultSQLServerDatabase;			
+		sSelectCmd =  sDefaultSQLServerSelectCmd;
+		sConnStr = _sConnStr;
+	ELSE							
+		IF sUsrName <> "" THEN			// test the connection to a SQL Server, but user specified the user name only
+			Message("Test Connection Error", "Server Name is not specified.", 48);
+			RETURN (0);		
+		ELSE							// user specified nothing, so using default settings to connect to the Citect Alarm Database 
+			_sConnStr = BuildAlarmServerConnectionString();
+			sDatabase = "";
+			sSelectCmd = sDefaultAlarmSelectCmd;
+		END
+	END
+	
+	PageSetInt("ADOConnTesting", 1);			// processing the test
+
+	hSQL = SQLConnect(_sConnStr);
+	IF (hSQL = -1) THEN
+		Message("Test Connection Error", SQLErrMsg(hSQL), 48);
+		// the test has failed, reset the variables to default
+		PageSetStr("ADODatabase", sDefaultSQLServerDatabase);
+		PageSetStr("ADOSelectCmd",  sDefaultSQLServerSelectCmd);
+		PageSetInt("ADOConnTesting", 0);		
+		RETURN (0);
+	ELSE
+		PageSetInt("ADOConnTesting", 2);		// the test has been passed
+		PageSetStr("ADOConnStr", sConnStr);
+		PageSetStr("ADODatabase", sDatabase);
+		PageSetStr("ADOSelectCmd", sSelectCmd);
+		SQLDisconnect(hSQL);		
+	END
+	
+	RETURN (1);
+END
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		BuildSQLServerConnectionString
+//
+//	DESCRIPTION:	Build SQL Server connection string
+//
+//	RETURN VALUE:	connection string
+//
+//	NOTES:			
+//-----------------------------------------------------------------------------
+
+STRING 
+FUNCTION BuildSQLServerConnectionString(STRING sServerName, STRING sDatabase, STRING sUserName, STRING sPassword)
+	STRING _sConnStr = "";
+	_sConnStr = _sConnStr + "driver={sql server};SERVER=";
+	_sConnStr = _sConnStr + sServerName;
+	_sConnStr = _sConnStr + ";Database=";
+	IF sDatabase = "" THEN
+		sDatabase = sDefaultSQLServerDatabase;
+	END
+	_sConnStr = _sConnStr + sDatabase;
+	_sConnStr = _sConnStr + ";UID=";
+	IF (sUserName = "<Windows>") THEN
+		_sConnStr = _sConnStr + ";PWD=";
+	ELSE
+		_sConnStr = _sConnStr + sUserName;
+		_sConnStr = _sConnStr + ";PWD=";
+		IF (sPassword <> "<Blank>") THEN
+			_sConnStr = _sConnStr + sPassword;
+		END
+	END
+	_sConnStr = _sConnStr + ";";
+	RETURN _sConnStr;
+END
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		BuildAlarmServerConnectionString
+//
+//	DESCRIPTION:	Build Alarm Server database connection string
+//
+//	RETURN VALUE:	connection string
+//
+//	NOTES:			
+//-----------------------------------------------------------------------------
+
+STRING 
+FUNCTION BuildAlarmServerConnectionString()
+	STRING _sConnStr = "";
+	STRING sSystemsXmlPath = "";						// systems.xml path for ODBC connection to alarming database
+	
+	sSystemsXmlPath = PathToStr("[RUN]:Systems.Alarm.Cluster1.AlarmServer1.xml");
+	
+	IF FileExist(sSystemsXmlPath) = 0 THEN
+		sSystemsXmlPath = PathToStr("[RUN]:Systems.xml");
+	END 
+	_sConnStr = sDefaultConnStr + sSystemsXmlPath + ";";	
+
+	RETURN _sConnStr;
+END		
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		NewRecordset
+//
+//	DESCRIPTION:	Get disconnected recordset
+//
+//	RETURN VALUE:	recordset handle
+//
+//	NOTES:			
+//-----------------------------------------------------------------------------
+INT
+FUNCTION NewRecordset(INT hSQL, STRING sSelectCmd)
+	INT nError = 0;
+	INT hRec = -1;
+	
+	IF hSQL <> -1 THEN
+		hRec = SQLGetRecordset(hSQL, sSelectCmd);
+		nError = IsError();
+	END
+	RETURN hRec;
+END
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		GetRecordsetHandle
+//
+//	DESCRIPTION:	Get disconnected recordset's handle; 
+//
+//	RETURN VALUE:	0 if successful; otherwise 1
+//
+//	NOTES:			
+//-----------------------------------------------------------------------------
+INT
+FUNCTION GetRecordset(INT hSQL, STRING sSelectCmd)
+	INT hNewRec = -1;
+	INT nRows = 0;
+	
+	IF StrLower(StrLeft(StrTrim(sSelectCmd), 6)) <> "select" THEN
+		Message("Select Command Error", "Invalid Select Command.", 48);
+		RETURN (1);
+	END	
+	
+	hNewRec = NewRecordset(hSQL, sSelectCmd);
+	
+	IF hNewRec <> -1 THEN
+		nRows = SQLRowCount(hNewRec);
+		IF nRows = 0 THEN
+			Message("Select Command Error", "The table is empty. The recordset cannot be created.", 48);
+			RETURN (1);
+		ELSE
+			hRecordset = hNewRec;
+			nRowCount = nRows;
+		END	
+	ELSE
+		Message("Select Command Error", SQLErrMsg(hSQL), 48);
+		RETURN (1);
+	END
+	RETURN (0);
+END
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		DspRecordset
+//
+//	DESCRIPTION:	Get disconnected recordset and display the result 
+//					on the popped up page.
+//
+//	RETURN VALUE:	
+//
+//	NOTES:	
+//-----------------------------------------------------------------------------
+FUNCTION DspRecordset()
+	INT hRec = -1;
+	INT hSQL = -1;
+	INT nStatus = 0;
+																	
+	STRING sServerName = PageGetStr("ADOServerName");	// server name
+	STRING sUsrName = PageGetStr("ADOUsrName");			// user name
+	STRING sUsrPwd = PageGetStr("ADOUsrPwd");			// user password
+	STRING sDatabase = PageGetStr("ADODatabase");		// database name
+	STRING _sConnStr = "";								// connection string buffer
+		
+	sConnStr = "";
+	sSelectCmd = PageGetStr("ADOSelectCmd");
+		
+	IF sServerName <> "" THEN
+		_sConnStr = BuildSQLServerConnectionString(sServerName, sDatabase, sUsrName, sUsrPwd);	
+		sConnStr = _sConnStr;
+		
+	ELSE
+		_sConnStr = BuildAlarmServerConnectionString();
+	END
+	
+	hSQL = SQLCreate(_sConnStr);
+	IF hSQL <> -1 THEN
+		nStatus = SQLOpen(hSQL);
+		IF nStatus = 0 THEN	
+			nStatus = GetRecordset(hSQL, sSelectCmd);
+			IF nStatus = 0 THEN
+				// associate connection string, select command and recordset handle to the popup
+				Ass(-2, "ConnStr", "'" + _sConnStr + "'", 0);
+				Ass(-2, "SelectCmd", "'" + sSelectCmd + "'", 0);
+				Ass(-2, "Session", "'" + IntToStr(hRecordset) + "'", 0);
+
+				PagePopUp("DatabaseDisplay");
+			END;
+			SQLClose(hSQL);
+		END
+		SQLDispose(hSQL);
+	ELSE
+		Message("ADO Connection Error", SQLErrMsg(hSQL), 48);
+		PageSetInt("ADOConnTesting", 0);		// the connection has failed, should test the connection again
+	END
+END
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		DatabaseDisplay_SqlTableInit
+//
+//	DESCRIPTION:	Callback function to handle the Init event of the
+//					SqlTable genie on the DatabaseDisplay page
+//
+//	RETURN VALUE:	1
+//
+//	NOTES:	
+//-----------------------------------------------------------------------------
+INT FUNCTION DatabaseDisplay_SqlTableInit(STRING sTable)
+	// Only associate s.g. to table properties once when
+	// the table is initialized for the first time
+	IF PageGetInt(sTable + ".Initialized") = 0 THEN
+		PageSetInt(sTable + ".Initialized", 1);
+		LibSqlTable_SetProperty(sTable, "Session", AssInfo("Session", 0));
+		LibSqlTable_SetProperty(sTable, "Connection", AssInfo("ConnStr", 0));
+		LibSqlTable_SetProperty(sTable, "Select", AssInfo("SelectCmd", 0));
+	END
+
+	RETURN TRUE;
+END
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		UsrInput_DBAccessPageSetVar
+//
+//	DESCRIPTION:	Allow user to input a value to a page string variable
+//
+//	RETURN VALUE:	
+//
+//	NOTES:	
+//-----------------------------------------------------------------------------
+FUNCTION UsrInput_DBAccessPageSetVar(STRING sFormTitle, STRING sFormPrompt, STRING sPageVar, STRING sDefaultVal)
+	STRING sInputVal = Input(sFormTitle, sFormPrompt, sDefaultVal);
+	IF IsError() <> 299 THEN	// IsError Capture error code 299 if user presses the cancel button on the input form
+		PageSetStr(sPageVar, sInputVal);
+	END 
+END 
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		DspSelectCommand_DatabaseAccess
+//
+//	DESCRIPTION:	Display select query on DatabaseAccess page
+//
+//	RETURN VALUE:	Truncated select query
+//
+//	NOTES:
+//-----------------------------------------------------------------------------
+STRING
+FUNCTION DspSelectCommand_DatabaseAccess()
+	RETURN (TruncateString(PageGetStr("ADOSelectCmd"), nMaxLength_DBAccessSidebar));
+END
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		TruncateString
+//
+//	DESCRIPTION:	Truncate string if its length is more than nMaxLength
+//
+//	RETURN VALUE:	Truncated string
+//
+//	NOTES:	
+//-----------------------------------------------------------------------------
+STRING
+FUNCTION TruncateString(STRING sStr, INT nMaxLength)
+
+	IF (StrLength(sStr) <= nMaxLength) THEN
+		RETURN (sStr);
+	END
+
+	RETURN (StrLeft(sStr, nMaxLength - 2) + "...");
+END

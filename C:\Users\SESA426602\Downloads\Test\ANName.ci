@@ -1,0 +1,35 @@
+//-----------------------------------------------------------------------------
+//	FILE:		ANName.ci
+//
+//	DESCRIPTION: This file contains functions for page animation name setting and
+//				 retrieving. These functions are only used by Scrollbar.ci.  
+//
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		ANName_Set
+//
+//	DESCRIPTION:	Set page animation name
+//
+//	RETURN VALUE:	0 when sucessfull, > 0 on error
+//
+//	NOTES:			
+//-----------------------------------------------------------------------------
+INT FUNCTION ANName_Set(STRING sName)
+
+	RETURN (PageSetInt("#AN_"+sName, DspGetAnCur()));
+END
+
+//-----------------------------------------------------------------------------
+//	FUNCTION:		ANName_Get
+//
+//	DESCRIPTION:	Get page animation name
+//
+//	RETURN VALUE:	the name of the page animation
+//
+//	NOTES:			
+//-----------------------------------------------------------------------------
+INT FUNCTION ANName_Get(STRING sName)
+
+	RETURN (PageGetInt("#AN_"+sName));
+END
