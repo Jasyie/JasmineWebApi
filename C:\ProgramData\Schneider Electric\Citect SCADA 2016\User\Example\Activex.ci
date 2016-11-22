@@ -3,7 +3,8 @@
 
 FUNCTION
 ActiveXCreate(STRING sControl, STRING sID, INT iXPos = 100, INT iYPos = 100, INT iWidth = 500, INT iHeight = 300)
-
+ 
+ 
 	// Call this function with iXPos set to -1 and iYPos set to an AN number of a
 	// display object which defines the size of the area to display the ActiveX
 	// NOTE: the display object must be animated in some way to make the AN number
