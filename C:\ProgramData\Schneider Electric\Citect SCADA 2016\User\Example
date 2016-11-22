@@ -1,0 +1,156 @@
+//--------------------------------------------------------------------------------
+//	Copyright © 2015 Schneider Electric (Australia) Pty Ltd. All rights reserved.
+//
+// 	FILE:		Utilities.ci
+//
+//	CREATED:	18/09/2009
+//
+//	SUMMARY:
+//
+//		Contains related functions for the Utilities page in Example project.
+//
+//	PUBLIC FUNCTIONS:
+//
+//		Util_Display_Version
+//		Util_Display_ServicePack
+//
+//-----------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------
+//
+//	Public Functions
+//
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		Util_Display_Version
+//
+//	SUMMARY:
+//		Get Citect Version number in the form of 7.20.133
+//			
+//	PARAMS:
+//		None
+//			
+//	RETURNS: 
+//		Citect Version number as string
+//
+//-----------------------------------------------------------------------------
+	
+STRING FUNCTION Util_Display_Version()
+	STRING	sVersion;
+	
+	sVersion = Version(3);
+	sVersion = StrWord(sVersion);
+	
+	RETURN sVersion;
+END
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		Util_Display_ServicePack
+//
+//	SUMMARY:
+//		Get Citect Service Pack/Patch/Hotfix in the form of 'Service Pack A..', 'Patch..' or 'HF...'
+//			
+//	PARAMS:
+//		None
+//			
+//	RETURNS: 
+//		Citect Service Pack as string
+//
+//-----------------------------------------------------------------------------
+
+STRING FUNCTION Util_Display_ServicePack()
+	STRING 	sServicePack="";
+	INT		iPos;
+	
+	! Check for service pack
+	iPos = StrSearch(0, Version(3), "Service");
+	
+	IF iPos = -1 THEN
+		! Check for Patch
+		iPos = StrSearch(0, Version(3), "Patch");
+	END
+
+	IF iPos = -1 THEN
+		! Check for hotfix
+		iPos = StrSearch(0, Version(3), "HF");
+	END
+	
+	IF iPos > -1 THEN
+		
+		sServicePack = StrMid(Version(3), iPos, StrLength(Version(3)) - iPos);
+	END
+	
+	RETURN sServicePack;
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		Util_Display_SPk
+//
+//	SUMMARY:
+//		Get Citect Service Pack in the form of 'Service Pack A..', 'SPk..HF' or 'SP...HF'
+//			
+//	PARAMS:
+//		None
+//			
+//	RETURNS: 
+//		Citect Service Pack as string
+//
+//-----------------------------------------------------------------------------
+
+STRING FUNCTION Util_Display_SPk()
+	STRING 	sServicePack = "";
+
+	! Check for Service Pack number
+	IF Version(2) <> "0" AND Version(2) <> " " AND Version(2) <> "" THEN 
+
+		sServicePack = "Service Pack " + Version(2);
+	END
+	
+	RETURN sServicePack;
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		Util_Display_Patch
+//
+//	SUMMARY:
+//		Get Citect Patch/Hotfix in the form of 'Patch..' or 'HF...'
+//			
+//	PARAMS:
+//		None
+//			
+//	RETURNS: 
+//		Patch as string
+//
+//-----------------------------------------------------------------------------
+
+STRING FUNCTION Util_Display_Patch()
+	STRING 	sPatch="";
+	INT		iPos;
+	
+	! Check for patch
+	iPos = StrSearch(0, Version(3), "Patch");
+
+	IF iPos = -1 THEN
+		! Check for hotfix
+		iPos = StrSearch(0, Version(3), "HF");
+	END
+	
+	IF iPos > -1 THEN
+		
+		sPatch = StrMid(Version(3), iPos, StrLength(Version(3)) - iPos);
+	END
+
+	RETURN sPatch;
+END
+
