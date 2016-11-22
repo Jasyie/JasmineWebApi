@@ -1,514 +1,57 @@
-REAL tempValue[1];
-REAL tempTotW[300];
-INT peakTimeA[1];
-INT x = 1;
-
-PUBLIC
-FUNCTION	EnergyManagementStart()
-	ResetPeakDemand();
-	Bottler_TANK1_Agitator_MaintRT =  43200;
-	Bottler_TANK2_Agitator_MaintRT =  43200;
-	Bottler_FILLER_MaintRT =  3600;
-	Bottler_CONVEYOR_MaintRT =  72000;
-	Bottler_CAPCONVEYOR_MaintRT = 1800;
-	Bottler_CAP_MaintRT =  1800;
-	Bottler_LABEL_MaintRT =  1800;
-	Mixer_Agitator_MaintRT = 7200;
-	Mixer_ChocFeed_MaintRT = 3600;
-	Mixer_Line1Pump_MaintRT = 3600;
-	Mixer_Line2Pump_MaintRT = 3600;
-	Mixer_MaltFeed_MaintRT = 3600;
-	Mixer_StrawFeed_MaintRT = 3600;
-	Mixer_SugarFeed_MaintRT = 3600;
-	Raw_FullMilkAgit_MaintRT = 7200;
-	Raw_FullMilkChiller_MaintRT = 3600;
-	Raw_FullMilkInletPump_MaintRT = 1800;
-	Raw_FullMilkOutPump_MaintRT = 3600;
-	Raw_SkimMilkAgit_MaintRT = 7200;
-	Raw_SkimMilkChiller_MaintRT = 3600;
-	Raw_SkimMilkInletPump_MaintRT = 1800;
-	Raw_SkimMilkOutPump_MaintRT = 3600;
-	TaskNew("PowerCalculationEvent","",0);
-	BuildDefaultSchedules();
-
-END
-
-//General Light LightPower
-
-REAL
-FUNCTION
-LightPower(INT bActive, TIMESTAMP vtsActive, INT nDimmerLevel, REAL BaseW,INT SwingTime,REAL MaxSwing)
-	
-	REAL rPower;
-	
-	IF bActive THEN
-    	IF TimestampDifference(TimestampCurrent(),vtsActive,5) <= SwingTime  THEN
-    		rPower = BaseW + MaxSwing;
-    	ELSE 
-    		rPower = BaseW;
-    	END 
-       	RETURN (rPower * nDimmerLevel / 100 );          
-    ELSE 
-    	RETURN (0);
-  	END
-END
-
-//  Function:  LoopPower
-
-REAL
-FUNCTION LoopPower(REAL ProcVar, REAL MaxPV, REAL Setpoint, REAL Output, REAL MaxW)
-
-	REAL rPower = 0;
-
-   	IF Setpoint > 0 THEN
-   		rPower = Pow((Output/100),2) * MaxW;
-	   	IF rPower > MaxW THEN
-  	 		rPower = MaxW;
-  	 	END
-	ELSE
-	   	IF ProcVar > 2 THEN
-   			rPower = Pow((ProcVar/MaxPV),2) * MaxW;
-		   	IF rPower > MaxW THEN
-  		 		rPower = MaxW;
-  		 	END
-   		END
- 	END
-   	RETURN(rPower);
-END
+//	FILE:		LoopPage.ci
+//
+//
+//	DESCRIPTION:	This file contains various functions for the loop page
+//
+// 	---------------------		Attach Comment Functions 	------------------------
+//
 
 
-// Event to calculate total power consumption
-  
-FUNCTION 
-PowerCalculationEvent()   
-	
-	WHILE (1) DO
-		BLD_EXT_L1_W = LightPower(BLD_EXT_L1_ON,BLD_EXT_L1_ON.vt,100,1000,7,300);
-		BLD_EXT_L2_W = LightPower(BLD_EXT_L2_ON,BLD_EXT_L2_ON.vt,100,1000,7,300);
-		BLD_EXT_L3_W = LightPower(BLD_EXT_L3_ON,BLD_EXT_L3_ON.vt,100,1000,7,300);
-		BLD_EXT_L4_W = LightPower(BLD_EXT_L4_ON,BLD_EXT_L4_ON.vt,100,1000,7,300);
-		BLD_EXT_L5_W = LightPower(BLD_EXT_L5_ON,BLD_EXT_L5_ON.vt,100,1000,7,300);
-		BLD_EXT_W = BLD_EXT_L1_W + BLD_EXT_L2_W + BLD_EXT_L3_W + BLD_EXT_L4_W + BLD_EXT_L5_W; 
-	
-		BLD_LVL1_ENT_L1_W = LightPower(BLD_LVL1_ENT_L1_ON,BLD_LVL1_ENT_L1_ON.vt,BLD_LVL1_ENT_L1_LEVEL,200,2,100);
-		BLD_LVL1_ENT_L2_W = LightPower(BLD_LVL1_ENT_L2_ON,BLD_LVL1_ENT_L2_ON.vt,BLD_LVL1_ENT_L2_LEVEL,200,2,100);
-		BLD_LVL1_RMA_L1_W = LightPower(BLD_LVL1_RMA_L1_ON,BLD_LVL1_RMA_L1_ON.vt,BLD_LVL1_RMA_L1_LEVEL,100,2,100);
-		BLD_LVL1_RMA_L2_W = LightPower(BLD_LVL1_RMA_L2_ON,BLD_LVL1_RMA_L2_ON.vt,BLD_LVL1_RMA_L2_LEVEL,100,2,100);
-		BLD_LVL1_BRK_L1_W = LightPower(BLD_LVL1_BRK_L1_ON,BLD_LVL1_BRK_L1_ON.vt,BLD_LVL1_BRK_L1_LEVEL,150,2,100);
-		BLD_LVL1_BRK_L2_W = LightPower(BLD_LVL1_BRK_L2_ON,BLD_LVL1_BRK_L2_ON.vt,BLD_LVL1_BRK_L2_LEVEL,150,2,100);
-		BLD_LVL1_BRK_L3_W = LightPower(BLD_LVL1_BRK_L3_ON,BLD_LVL1_BRK_L3_ON.vt,BLD_LVL1_BRK_L3_LEVEL,150,2,100);
-		BLD_LVL1_BRK_L4_W = LightPower(BLD_LVL1_BRK_L4_ON,BLD_LVL1_BRK_L4_ON.vt,BLD_LVL1_BRK_L4_LEVEL,150,2,100);
-
-		BLD_LVL1_W = BLD_LVL1_ENT_L1_W + BLD_LVL1_ENT_L2_W + BLD_LVL1_RMA_L1_W + BLD_LVL1_RMA_L2_W 
-			+ BLD_LVL1_BRK_L1_W + BLD_LVL1_BRK_L2_W + BLD_LVL1_BRK_L3_W + BLD_LVL1_BRK_L4_W;
-	
-		BLD_LVL2_RMA_L1_W = LightPower(BLD_LVL2_RMA_L1_ON,BLD_LVL1_RMA_L1_ON.vt,BLD_LVL2_RMA_L1_LEVEL,100,2,100);
-		BLD_LVL2_RMA_L2_W = LightPower(BLD_LVL2_RMA_L2_ON,BLD_LVL2_RMA_L2_ON.vt,BLD_LVL2_RMA_L2_LEVEL,100,2,100);
-		BLD_LVL2_RMA_L3_W = LightPower(BLD_LVL2_RMA_L3_ON,BLD_LVL2_RMA_L3_ON.vt,BLD_LVL2_RMA_L3_LEVEL,100,2,100);
-		BLD_LVL2_RMA_L4_W = LightPower(BLD_LVL2_RMA_L4_ON,BLD_LVL2_RMA_L4_ON.vt,BLD_LVL2_RMA_L4_LEVEL,100,2,100);
-		BLD_LVL2_RMB_L1_W = LightPower(BLD_LVL2_RMB_L1_ON,BLD_LVL2_RMB_L1_ON.vt,BLD_LVL2_RMB_L1_LEVEL,100,2,100);
-		BLD_LVL2_RMB_L2_W = LightPower(BLD_LVL2_RMB_L2_ON,BLD_LVL2_RMB_L2_ON.vt,BLD_LVL2_RMB_L2_LEVEL,100,2,100);	
-		BLD_LVL2_RMB_L3_W = LightPower(BLD_LVL2_RMB_L3_ON,BLD_LVL2_RMB_L3_ON.vt,BLD_LVL2_RMB_L3_LEVEL,100,2,100);
-		BLD_LVL2_RMA_L4_W = LightPower(BLD_LVL2_RMB_L4_ON,BLD_LVL2_RMB_L4_ON.vt,BLD_LVL2_RMB_L4_LEVEL,100,2,100);
-		BLD_LVL2_GEN_L1_W = LightPower(BLD_LVL2_GEN_L1_ON,BLD_LVL2_GEN_L1_ON.vt,100,200,2,100);
-		BLD_LVL2_GEN_L2_W = LightPower(BLD_LVL2_GEN_L2_ON,BLD_LVL2_GEN_L2_ON.vt,BLD_LVL2_GEN_L2_LEVEL,200,2,100);
-		BLD_LVL2_OF1_L1_W = LightPower(BLD_LVL2_OF1_L1_ON,BLD_LVL2_OF1_L1_ON.vt,BLD_LVL2_OF1_L1_LEVEL,200,2,100);
-		BLD_LVL2_W = BLD_LVL2_RMA_L1_W + BLD_LVL2_RMA_L2_W + BLD_LVL2_RMA_L3_W + BLD_LVL2_RMA_L4_W 
-			+ BLD_LVL2_RMB_L1_W + BLD_LVL2_RMB_L2_W + BLD_LVL2_RMB_L3_W + BLD_LVL2_RMB_L4_W
-			+ BLD_LVL2_GEN_L1_W + BLD_LVL2_GEN_L2_W + BLD_LVL2_OF1_L1_W;
-    
-		BLD_W = BLD_LVL1_W + BLD_LVL2_W + PLT_W + BLD_EXT_W;
-
-//Plant power calculations
-		PLT_LINE1_L1_W = LightPower(PLT_LINE1_L1_ON,PLT_LINE1_L1_ON.vt,100,500,5,300);
-		PLT_LINE1_L2_W = LightPower(PLT_LINE1_L2_ON,PLT_LINE1_L2_ON.vt,100,500,5,300);
-		PLT_LINE1_L3_W = LightPower(PLT_LINE1_L3_ON,PLT_LINE1_L3_ON.vt,100,500,5,300);
-		PLT_LINE1_L4_W = LightPower(PLT_LINE1_L4_ON,PLT_LINE1_L4_ON.vt,100,500,5,300);
-		PLT_LINE1_L5_W = LightPower(PLT_LINE1_L5_ON,PLT_LINE1_L5_ON.vt,100,500,5,300);
-	
-		PLT_LINE2_L1_W = LightPower(PLT_LINE2_L1_ON,PLT_LINE2_L1_ON.vt,100,500,5,200);
-		PLT_LINE2_L2_W = LightPower(PLT_LINE2_L2_ON,PLT_LINE2_L2_ON.vt,100,500,5,200);
-		PLT_LINE2_L3_W = LightPower(PLT_LINE2_L3_ON,PLT_LINE2_L3_ON.vt,100,500,5,200);
-		PLT_LINE2_L4_W = LightPower(PLT_LINE2_L4_ON,PLT_LINE2_L4_ON.vt,100,500,5,200);
-		PLT_LINE2_L5_W = LightPower(PLT_LINE2_L5_ON,PLT_LINE2_L5_ON.vt,100,500,5,200);
-
-//Bottline line power calculations
-		Bottler_Cap_W = DeviceScaler(Bottler_Cap_ON,Bottler_Cap_ON.vt,0,1)*3000;
-		Bottler_CapConveyor_W = DeviceScaler(Bottler_CapConveyor_ON,Bottler_CapConveyor_ON.vt,0,1)*3000;
-		Bottler_Conveyor_W = DeviceScaler(Bottler_Conveyor_ON,Bottler_Conveyor_ON.vt,0,1)*(7*Pow(Bottler_Conveyor_Speed-9,3)+3*Pow(Bottler_Conveyor_Speed-9,2)+250*(Bottler_Conveyor_Speed-9)+8000);
-		Bottler_Filler_W = DeviceScaler(Bottler_Filler_ON,Bottler_Filler_ON.vt,0,1)*3000;
-		Bottler_Tank1_Agitator_W = DeviceScaler(Bottler_Tank1_Agitator_ON,Bottler_Tank1_Agitator_ON.vt,Bottler_Tank1_Agitator_RT,Bottler_Tank1_Agitator_MaintRt)*7000*((Pow(IntToReal(Bottler_Tank1_Level)/1200,2)/3)+0.6)
-		Bottler_Tank2_Agitator_W = DeviceScaler(Bottler_Tank2_Agitator_ON,Bottler_Tank2_Agitator_ON.vt,Bottler_Tank2_Agitator_RT,Bottler_Tank2_Agitator_MaintRT)*7000*((Pow(IntToReal(Bottler_Tank2_Level)/1200,2)/3)+0.6)
-
-		CalcValues("Bottler_Cap");
-		CalcValues("Bottler_CapConveyor");
-		CalcValues("Bottler_Label");
-		CalcValues("Bottler_Conveyor");
-		CalcValues("Bottler_Filler");
-		CalcValues("Bottler_Tank1_Agitator");
-		CalcValues("Bottler_Tank2_Agitator");
-
-//Mixing Line power calculations
-		Raw_FullMilkInletPump_W = DeviceScaler(Raw_FullMilkInletPump_ON,Raw_FullMilkInletPump_ON.vt,Raw_FullMilkInletPump_RT,Raw_FullMilkInletPump_MaintRT)*12000;
-		Raw_FullMilkAgit_W = DeviceScaler(Raw_FullMilkAgit_ON, Raw_FullMilkAgit_ON.vt,Raw_FullMilkAgit_RT,Raw_FullMilkAgit_MaintRT)*((Pow(Raw_SkimMilk/10000,2)/3)+0.6)*4000;
-	 	Raw_FullMilkOutPump_W = DeviceScaler(Raw_FullMilkOutPump_ON, Raw_FullMilkOutPump_ON.vt,Raw_FullMilkOutPump_RT,Raw_FullMilkOutPump_MaintRT)*((10000-Raw_FullMilk)/30000+0.6)*6000;
-		Raw_SkimMilkInletPump_W = DeviceScaler(Raw_SkimMilkInletPump_ON,Raw_SkimMilkInletPump_ON.vt,Raw_SkimMilkInletPump_RT,Raw_SkimMilkInletPump_MaintRT)*12000;
-		Raw_SkimMilkAgit_W = DeviceScaler(Raw_SkimMilkAgit_ON,Raw_SkimMilkAgit_ON.vt,Raw_SkimMilkAgit_RT,Raw_SkimMilkAgit_MaintRT)*((Pow(Raw_FullMilk/10000,2)/3)+0.6)*4000;
-		Raw_SkimMilkOutPump_W = DeviceScaler(Raw_SkimMilkOutPump_ON,Raw_SkimMilkOutPump_ON.vt,Raw_SkimMilkOutPump_RT,Raw_SkimMilkOutPump_MaintRT)*((10000-Raw_SkimMilk)/30000+0.6)*6000;
-		Mixer_SugarFeed_W = DeviceScaler(Mixer_SugarFeed_ON,Mixer_SugarFeed_ON.vt,0,1)*3500;
-		Mixer_MaltFeed_W = DeviceScaler(Mixer_MaltFeed_ON,Mixer_MaltFeed_ON.vt,0,1)*3000;
-		Mixer_StrawFeed_W = DeviceScaler(Mixer_StrawFeed_ON,Mixer_StrawFeed_ON.vt,0,1)*2800;
-		Mixer_ChocFeed_W = DeviceScaler(Mixer_ChocFeed_ON,Mixer_ChocFeed_ON.vt,0,1)*2800;
-		Mixer_Agitator_W = DeviceScaler(Mixer_Agitator_ON,Mixer_Agitator_ON.vt,Mixer_Agitator_RT,Mixer_Agitator_MaintRT)*Pow(Mixer_Visc,2)*(Mixer_Agitator_Speed/20+0.5)*9000;
-		Mixer_Line1Pump_W = DeviceScaler(Mixer_Line1Pump_ON,Mixer_Line1Pump_ON.vt,Mixer_Line1Pump_RT,Mixer_Line1Pump_MaintRT)*Pow(Mixer_Visc,2)*6000;
-		Mixer_Line2Pump_W = DeviceScaler(Mixer_Line2Pump_ON,Mixer_Line2Pump_ON.vt,Mixer_Line2Pump_RT,Mixer_Line2Pump_MaintRT)*Pow(Mixer_Visc,2)*6000;
-
-		Mixer_RawMilk_W = Raw_FullMilkInletPump_W + Raw_FullMilkAgit_W + Raw_FullMilkOutPump_W + Raw_SkimMilkInletPump_W + Raw_SkimMilkAgit_W + Raw_SkimMilkOutPump_W;
-		Mixer_Mixer_W = Mixer_SugarFeed_W + Mixer_MaltFeed_W + Mixer_StrawFeed_W + Mixer_ChocFeed_W + Mixer_Agitator_W + Mixer_Line1Pump_W + Mixer_Line2Pump_W;
-		PLT_LINE1_W = PLT_LINE1_L1_W + PLT_LINE1_L2_W + PLT_LINE1_L3_W + PLT_LINE1_L4_W + PLT_LINE1_L5_W + Mixer_RawMilk_W + Mixer_Mixer_W;
-		PLT_LINE2_W = PLT_LINE2_L1_W + PLT_LINE2_L2_W + PLT_LINE2_L3_W + PLT_LINE2_L4_W + PLT_LINE2_L5_W + Bottler_CapConveyor_W + Bottler_Cap_W + Bottler_CONVEYOR_W + Bottler_FILLER_W + Bottler_Label_W + Bottler_TANK1_Agitator_W + Bottler_TANK2_Agitator_W;
-
-		CalcValues("Mixer_RawMilk");
-		CalcValues("Raw_SkimMilkOutPump");
-		CalcValues("Raw_FullMilkOutPump");
-		CalcValues("Mixer_Mixer");
-		CalcValues("PLT_LINE1");
-		CalcValues("PLT_LINE2");
-
-		PLT_W = PLT_LINE1_W + PLT_LINE2_W
-
-// Total Building Energy
-		BLD_W = BLD_LVL1_W + BLD_LVL2_W + PLT_W + BLD_EXT_W;
-		CalcValues("BLD");
-
-// Reset Peak Demand at 5 minute intervals
-		IF IntToReal(TimeCurrent()) >= (peakTime + 600) THEN
-			ResetPeakDemand();
-		END
-
-		Sleep(1);
-	END
-END
-
-REAL
-FUNCTION DeviceScaler(INT bON, TIMESTAMP tsON, REAL RunTime, REAL MaintTime)
-	REAL scaler;
-	
-	IF bON THEN
-		SELECT CASE SecondsSince(tsON)
-			CASE 0		scaler = 100 * 1.7 + Rand(20);
-			CASE 1		scaler = 100 * 1.5 + Rand(15);
-			CASE 2		scaler = 100 * 1.25 + Rand(10);
-			CASE 3		scaler = 100 * 1.1 + Rand(10);
-			CASE ELSE	scaler = (98 + Rand(5))*(Pow(Max(0,Min(1,RunTime/MaintTime)),2)/3+1);
+//	FUNCTION:	LoopPage_RightClick
+//
+//	DESCRIPTION:	Right click menu on loop page equipment tree only for loops equipment
+//
+INT
+FUNCTION LoopPage_RightClick(INT hNode, STRING sEquipPath)
+	IF hNode > -1 THEN
+		Prompt(sEquipPath);
+		SELECT CASE sEquipPath
+		CASE "Loops.Level"
+			RETURN LoopPage_RightClickMenu(530);
+		CASE "Loops.Density"
+			RETURN LoopPage_RightClickMenu(525);
+		CASE "Loops.Temperature"
+			RETURN LoopPage_RightClickMenu(521);
 		END SELECT
-	ELSE
-		scaler = 0;
+		Prompt(sEquipPath + " @(has no popup menu.)");
 	END
-	RETURN scaler/100;
+	RETURN 274;	// invalid argument
 END
 
-REAL 
-FUNCTION AveragePower(INT size)
-	REAL retValue = 0;
-	
-	IF size = 1 THEN
-		retValue = tempTotW[0];
-	END
+//	FUNCTION:	LoopPage_RightClick
+//
+//	DESCRIPTION:	Right click menu on loop page equipment tree
+//
+INT FUNCTION LoopPage_RightClickMenu(INT hAN)
+	INT iSelection;
+	STRING sMeta;
 
-	IF 1 < size THEN
-		retValue = TableMath(tempTotW, size, 2);
-	END
-	
-	RETURN retValue;
+	DspPopupMenu(0, "PID Loop,Sequence of Events,Display Trends");
+	iSelection = DspPopupMenu(-1, "");
+	SELECT CASE iSelection
+	CASE 1
+		AssMetadataPopUp("!PID",hAN);
+	CASE 2
+		sMeta = DspAnGetMetadata(hAN, "PID_Equip");
+		sMeta = StrRight(sMeta,StrLength(sMeta)-1);
+		SOE_PopUp(sMeta);
+	CASE 3
+		sMeta = DspAnGetMetadata(hAN, "PID_PAV");
+		sMeta = StrRight(sMeta,StrLength(sMeta)-1);
+		ProcessAnalystPopup("!ProcessAnalystPopup",sMeta);
+	END SELECT
+	RETURN 0;
 END
-
-//Set PM800 Variables
-FUNCTION CalcValues (STRING sMeterTag)
-	REAL Volts = 230;
-	REAL AccPower;
-	REAL Power;
-	REAL predPower;
-	REAL elapsedTime;
-	INT ctlVal;
-	STRING trendName;
-	
-	//Write quazi-random PF and Hz to meter
-	Power= 4950+Rand(100);
-	Power=Power/100;
-	TagWrite(sMeterTag + "_PM800\MMXU1\Hz",Power);
-	Power= 88 + Rand(5);
-	Power=Power/100;
-	TagWrite(sMeterTag + "_PM800\MMXU1\TotPF",Power);
-
-	//Set voltage to meter
-	TagWrite(sMeterTag + "_PM800\MMXU1\PhV\zavg",Volts);
-
-	//Set object power to Meter
-	Power = TagRead(sMeterTag + "_W");
-	TagWrite(sMeterTag + "_PM800\MMXU1\TotW",Power); 
-	//Set current to Meter
-	TagWrite(sMeterTag + "_PM800\MMXU1\A\zavg", Power/Volts);
-
-	//Calculate and write Predicted Peak Power to meter
-	elapsedTime = Max(Min(IntToReal(TimeCurrent()-peakTime-300), 300), 0);
-	trendName = sMeterTag + "_PM800\MMXU1\TotW1S";
-	tempTotW[0]=0;
-	
-	IF  elapsedTime <> 300 THEN
-		TrnGetTable(trendName, 0, 1, 300-(elapsedTime),tempTotW[0], 0)
-	END
-	
-	Power = AveragePower(300 - (elapsedTime));
-	
-	IF  elapsedTime <> 0 THEN
-		TrnGetTable(trendName, 0, 1, elapsedTime,tempTotW[0], 0);
-	END
-	
-	AccPower = AveragePower(elapsedTime);
-	
-	predPower = (AccPower * elapsedTime + Power * (300 - elapsedTime))/300;
-	TagWrite(sMeterTag + "_PM800\PDT_MSTA1\AvW",predPower);
-	//Reset Max Peak AND Predicted Peak Alarm on RsMaxPwr\ctlVal flag from !PM800Detail Reset Max
-	ctlVal = TagRead(sMeterTag + "_PM800\MSTA1\RsMaxPwr\ctlVal");
-	IF ctlVal = 1 THEN
-		TagWrite(sMeterTag + "_PM800\MSTA1\MaxW", 0);
-		TagWrite(sMeterTag + "_PM800\PDT_MSTA1\AvW.high", 0);
-		AlarmNotifyVarChange(sMeterTag + "_PM800\MSTA1\MaxW",0,peakTime+300,0,"Cluster1");
-		TagWrite(sMeterTag + "_PM800\MSTA1\MaxW.high",0);
-		TagWrite(sMeterTag + "_PM800\MSTA1\RsMaxPwr\ctlVal", 0);
-	END
-END
-
-FUNCTION ResetPeakDemand()
-	REAL adjtime;
-	adjtime = IntToReal(TimeCurrent());
-	adjtime = adjtime / 300;
-	adjtime = adjtime*300 - (adjtime - Round(adjtime-0.5,0))*300-300;
-	TagWrite("peakTime",adjtime);
-	Sleep(0);
-	peakTimeA[0] = peakTime;
-
-	ResetMeterPeakDemand("PLT_LINE1_PM800");
-	ResetMeterPeakDemand("PLT_LINE2_PM800");
-	ResetMeterPeakDemand("Bottler_CAPCONVEYOR_PM800");
-	ResetMeterPeakDemand("Bottler_CAP_PM800");
-	ResetMeterPeakDemand("Bottler_CONVEYOR_PM800");
-	ResetMeterPeakDemand("Bottler_FILLER_PM800");
-	ResetMeterPeakDemand("Bottler_LABEL_PM800");
-	ResetMeterPeakDemand("Bottler_TANK1_Agitator_PM800");
-	ResetMeterPeakDemand("Bottler_TANK2_Agitator_PM800");
-	ResetMeterPeakDemand("Mixer_Mixer_PM800");
-	ResetMeterPeakDemand("Raw_SkimMilkOutPump_PM800");
-	ResetMeterPeakDemand("Raw_FullMilkOutPump_PM800");
-	ResetMeterPeakDemand("Mixer_RawMilk_PM800");
-	ResetMeterPeakDemand("BLD_PM800");
-END
-
-FUNCTION ResetMeterPeakDemand(STRING sMeterTag)
-	STRING tempTag;
-	REAL currPeakPower;
-	REAL maxPeakPower;
-	currPeakPower = TagRead(sMeterTag + "\PDT_MSTA1\AvW");
-	tempTag = sMeterTag + "\MSTA1\MaxW";
-	tempValue[0] = currPeakPower;
-	TrnEventSetTable(tempTag, 0, 0, 1, tempValue[0], peakTimeA[0] );
-	tempTag = sMeterTag + "\MSTA1\MaxW"
-
-	AlarmNotifyVarChange(tempTag,currPeakPower,peakTime+300,0,"Cluster1");
-	maxPeakPower = TagRead(sMeterTag + "\MSTA1\MaxW");
-
-	IF  currPeakPower > maxPeakPower AND currPeakPower > 0 THEN
-		TagWrite(sMeterTag + "\MSTA1\MaxW",currPeakPower);
-		maxPeakPower = TagRead(sMeterTag + "\PDT_MSTA1\AvW.high");
-		IF currPeakPower > maxPeakPower THEN 
-			TagWrite(sMeterTag + "\PDT_MSTA1\AvW.high",currPeakPower);
-		END
-		TagWrite(sMeterTag + "\MSTA1\MaxW.high",currPeakPower);
-	END
-	tempTag = sMeterTag + "_W_ACC";
-	AccControl(tempTag,3);
-END
-
-INT FUNCTION PM800_Alarm_Init(STRING tableName, INT AN)
-	STRING equipName = AssInfo("PM800_Equip", 0);
-	INT session = AlarmFilterEditOpen(AN);
-
-	IF session >= 0 THEN
-		AlarmFilterEditSet(session, "Equipment=" + equipName + " OR Equipment=" + equipName + ".*");
-		AlarmFilterEditCommit(session);
-		AlarmFilterEditClose(session);
-	END
-
-	RETURN TRUE;
-END
-
-FUNCTION	BuildDefaultSchedules()
-
-	INT	hSession;
-	TIMESTAMP tsTime;
-	INT	nID;
-	INT nYear, nMonth, nDay;
-	
-	tsTime = TimestampCurrent();
-	nYear = TimestampGetPart(tsTime,0);
-	nMonth = TimestampGetPart(tsTime,1);
-	nDay = TimestampGetPart(tsTime,2);
-		
-	hSession = SchdConfigOpen(TimestampCurrent(), (86400 * 2), "", "STATE","Cluster1");
-	WHILE hSession = -1 DO
-		Sleep(1);
-		hSession = SchdConfigOpen(TimestampCurrent(), (86400 * 2), "", "STATE","Cluster1");
-	END
-
-	IF SchdConfigNumRecords(hSession) = 0 THEN
-		nID = ScheduleItemAdd("Cluster1","Plant","Maintenance",TimestampCreate(nYear,nMonth,nDay,5,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,6,45,0,0),"Maintenance");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant","Standby",TimestampCreate(nYear,nMonth,nDay,6,45,0,0,0),TimestampCreate(nYear,nMonth,nDay,7,0,0,0),"Shift Change");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant","Active",TimestampCreate(nYear,nMonth,nDay,7,0,0,0,0),TimestampCreate(nYear,nMonth,nDay,13,45,0,0),"MorningShift");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,0);
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant","Standby",TimestampCreate(nYear,nMonth,nDay,13,45,0,0,0),TimestampCreate(nYear,nMonth,nDay,14,15,0,0,0),"Shift Change");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,1,1,0,0);
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant","Active",TimestampCreate(nYear,nMonth,nDay,14,15,0,0,0),TimestampCreate(nYear,nMonth,nDay,21,0,0,0,0),"AfternoonShift");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,1,1,0,0);
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant","Standby",TimestampCreate(nYear,nMonth,nDay,21,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,21,15,0,0,0),"Shift Change");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,1,1,0,0);
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant","Active",TimestampCreate(nYear,nMonth,nDay,21,15,0,0,0),TimestampCreate(nYear,nMonth,nDay+1,5,0,0,0,0),"NightShift");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,1,1,0,0);
-		END
-		nID = ScheduleItemAdd("Cluster1","Building","Active",TimestampCreate(nYear,nMonth,nDay,8,0,0,0,0),TimestampCreate(nYear,nMonth,nDay,18,0,0,0,0),"Office Day");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,62,-1,TimestampAdd(TimestampCurrent(),1,1),1,1,1,0,0);
-		END
-		nID = ScheduleItemAdd("Cluster1","Building.External","Active",TimestampCreate(nYear,nMonth,nDay,19,0,0,0,0),TimestampAdd(TimestampCreate(nYear,nMonth,nDay,19,0,0,0,0),12,3),"Nighttime");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,127,-1,TimestampAdd(TimestampCurrent(),1,1),1,1,1,0,0);
-		END
-		nID = ScheduleItemAdd("Cluster1","Building.External","Off",TimestampCreate(nYear,nMonth,nDay,7,0,0,0,0),TimestampAdd(TimestampCreate(nYear,nMonth,nDay,7,0,0,0,0),12,3),"Daytime");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,127,-1,TimestampAdd(TimestampCurrent(),1,1),1,1,1,0,0);
-		END
-		nID = ScheduleItemAdd("Cluster1","Building.Level2.General.Light1","Active",TimestampCreate(nYear,nMonth,nDay,0,0,0,0,0),TimestampAdd(TimestampCreate(nYear,nMonth,nDay,0,0,0,0,0),24,3),"Safety");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,127,-1,TimestampAdd(TimestampCurrent(),1,1),1,1,1,0,0);
-		END
-	
-		//Recipes
-		nID = ScheduleItemAdd("Cluster1","Plant.Mixer.Sequence","SkimOnly",TimestampCreate(nYear,nMonth,nDay,14,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,19,0,0,0),"Peak");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Mixer.Sequence","SkimOnly",TimestampCreate(nYear,nMonth,nDay,07,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,10,30,0,0),"Shoulder");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Mixer.Sequence","FullOnly",TimestampCreate(nYear,nMonth,nDay,10,30,0,0,0),TimestampCreate(nYear,nMonth,nDay,14,0,0,0),"Shoulder");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Mixer.Sequence","FullOnly",TimestampCreate(nYear,nMonth,nDay,19,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,20,30,0,0),"Shoulder");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Mixer.Sequence","SkimOnly",TimestampCreate(nYear,nMonth,nDay,20,30,0,0,0),TimestampCreate(nYear,nMonth,nDay,22,0,0,0),"Shoulder");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Mixer.Sequence","FullOnly",TimestampCreate(nYear,nMonth,nDay,22,00,0,0,0),TimestampCreate(nYear,nMonth,nDay+1,07,0,0,0),"Off-Peak");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Mixer.Sequence","MaltOnly",TimestampCreate(nYear,nMonth,nDay,02,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,03,0,0,0),"Special");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,125,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-	
-		//Conveyor Speed (matched to recipes/tariff)
-		
-		nID = ScheduleItemAdd("Cluster1","Plant.Bottler.Conveyor.Speed","75%",TimestampCreate(nYear,nMonth,nDay,14,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,19,0,0,0),"Peak");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Bottler.Conveyor.Speed","100%",TimestampCreate(nYear,nMonth,nDay,07,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,10,30,0,0),"Shoulder");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Bottler.Conveyor.Speed","75%",TimestampCreate(nYear,nMonth,nDay,10,30,0,0,0),TimestampCreate(nYear,nMonth,nDay,14,0,0,0),"Shoulder");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Bottler.Conveyor.Speed","75%",TimestampCreate(nYear,nMonth,nDay,19,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,20,30,0,0),"Shoulder");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Bottler.Conveyor.Speed","100%",TimestampCreate(nYear,nMonth,nDay,20,30,0,0,0),TimestampCreate(nYear,nMonth,nDay,22,0,0,0),"Shoulder");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Bottler.Conveyor.Speed","100%",TimestampCreate(nYear,nMonth,nDay,22,00,0,0,0),TimestampCreate(nYear,nMonth,nDay+1,07,0,0,0),"Off-Peak");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Plant.Bottler.Conveyor.Speed","50%",TimestampCreate(nYear,nMonth,nDay,02,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,03,0,0,0),"Special");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,125,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-	
-	
-		//Tariffs
-		nID = ScheduleItemAdd("Cluster1","Tariffs","Peak",TimestampCreate(nYear,nMonth,nDay,14,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,19,0,0,0),"Peak");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Tariffs","Shoulder",TimestampCreate(nYear,nMonth,nDay,07,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,14,0,0,0),"Shoulder");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Tariffs","Shoulder",TimestampCreate(nYear,nMonth,nDay,19,00,0,0,0),TimestampCreate(nYear,nMonth,nDay,22,0,0),"Shoulder");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-		nID = ScheduleItemAdd("Cluster1","Tariffs","OffPeak",TimestampCreate(nYear,nMonth,nDay,22,00,0,0,0),TimestampCreate(nYear,nMonth,nDay+1,07,0,0,0),"Off-Peak");
-		IF nID <> -1 THEN
-			ScheduleItemSetRepeat("Cluster1",nID,5,1,0,126,-1,TimestampAdd(TimestampCurrent(),1,1),1,0,0,0,"");
-		END
-	END	
-	SchdConfigClose(hSession);
-
-END
-
-FUNCTION	ClearSchedules()
-
-	INT hSession;
-	INT nID;
-	INT	hNext;
-	
-	hSession = SchdConfigOpen(TimestampCurrent(), (86400 * 31), "", "ID","Cluster1");
-	IF SchdConfigNumRecords(hSession) <> 0 THEN
-		WHILE hNext = 0 DO
-			nID = SchdConfigGetField(hSession,"ID");
-			ScheduleItemDelete("Cluster1",nID);
-			hNext = SchdConfigNext(hSession);
-		END
-		SchdConfigClose(hSession);
-	END
-
-END
-
 
 
 
