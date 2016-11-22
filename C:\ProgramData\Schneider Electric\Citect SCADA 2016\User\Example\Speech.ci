@@ -1,0 +1,110 @@
+//--------------------------------------------------------------------------------
+//	Copyright © 2015 Schneider Electric (Australia) Pty Ltd. All rights reserved.
+//
+// 	FILE:		Speech.ci
+//
+//	CREATED:	16/06/2015
+//
+//	SUMMARY:
+//
+//		Contains an example of how to use the DllClass Functions to access a 
+//		.Net dll to use microsoft's speech functionality.
+//		
+//		This example reads alarm from the Alarm Event Queue and then passes the
+//		alarm name into the Speak function.
+//
+//
+//	PUBLIC FUNCTIONS:
+//
+//		TextToSpeechInitialize
+//		TextToSpeechDispose
+//		TextToSpeechSpeak
+//
+// 	REMARKS: 
+//
+//	USAGE:
+//
+//-----------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------
+//
+//	Global Variables
+//
+//-----------------------------------------------------------------------------
+GLOBAL OBJECT oSpeech;
+
+//-----------------------------------------------------------------------------
+//
+//	Public Functions
+//
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		TextToSpeechInitialize
+//
+//	SUMMARY:
+//		Creates an instance of the TextToSpeech class and passes it into a
+//		global object
+//
+//	PARAMS:
+//		None
+//
+//	RETURNS: 
+//		None
+//
+//-----------------------------------------------------------------------------
+FUNCTION TextToSpeechInitialize()
+
+	IF NOT(DllClassIsValid(oSpeech)) THEN
+		oSpeech = DllClassCreate(PathToStr("[RUN]:SE.Citect.TextToSpeech.dll"),"TextToSpeech");
+	END
+	
+END
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		TextToSpeechDispose
+//
+//	SUMMARY:
+//		Disposes of the instance of the TextToSpeech class
+//
+//	PARAMS:
+//		None
+//
+//	RETURNS: 
+//		None
+//
+//-----------------------------------------------------------------------------
+FUNCTION TextToSpeechDispose()
+
+	IF DllClassIsValid(oSpeech) THEN
+		DllClassDispose(oSpeech);
+	END
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		TextToSpeechSpeak
+//
+//	SUMMARY:
+//		Checks if the instance of the .Net object is valid, and then calls the
+//		speak method from TextToSpeech.
+//
+//	PARAMS:
+//		sText - The text to speak.
+//
+//	RETURNS: 
+//		None
+//
+//-----------------------------------------------------------------------------
+FUNCTION TextToSpeechSpeak(STRING sText);
+
+	IF DllClassIsValid(oSpeech) THEN
+		DllClassCallMethod(oSpeech, "Speak", sText);
+	END
+	
+END

@@ -1,0 +1,118 @@
+//--------------------------------------------------------------------------------
+//	Copyright © 2015 Schneider Electric (Australia) Pty Ltd. All rights reserved.
+//
+// 	FILE:		AlarmServerStartup.ci
+//
+//	CREATED:	18/06/2015
+//
+//	SUMMARY:
+//
+//		General alarm server functions
+//
+//
+//	PUBLIC FUNCTIONS:
+//
+//		AlarmServerStartup
+//		ProcessEventQue
+//
+// 	REMARKS: 
+//
+//	USAGE:
+//
+//-----------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------
+//
+//	Public Functions
+//
+//-----------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		AlarmServerStartup
+//
+//	SUMMARY:
+//		The start up function on the alarm server.
+//
+//	PARAMS:
+//
+//	RETURNS: 
+//		None
+//
+//-----------------------------------------------------------------------------
+FUNCTION AlarmServerStartup()
+
+	TaskNew("ProcessEventQue","",0)
+
+END
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		ProcessEventQue
+//
+//	SUMMARY:
+//		Processes the event queue, and then passes the names from any ON,
+//		UNACKNOWLEDGED alarms into the speak function.
+//
+//	PARAMS:
+//
+//	RETURNS: 
+//		None
+//
+//-----------------------------------------------------------------------------
+FUNCTION ProcessEventQue()
+
+	STRING sAlarmFmt;
+	INT nRecord;
+	INT hQue;
+	STRING sName;
+	STRING sTime;
+	STRING sType;
+	STRING sState;
+	INT iCategory;
+	INT iError=0;
+	STRING sEventQueFormat;
+	INT hFmt;
+	STRING sEventFmt = "{Name,79}{STATE,16}{TYPE,16}";
+
+	//Creates an instance of TextToSpeech
+	TextToSpeechInitialize()
+	
+	//Open the Alarm Event Queue
+	hQue = AlarmEventQue()
+	//Ensure the the Alarm Event Queue is set to the correct format.
+	//This checks that if the parameter [Alarm] EventFmt is set to an incompatible format
+	//in the citect.ini file, then this code will not start
+	sEventQueFormat = ParameterGet("ALARM","EVENTFMT",sEventFmt);
+	IF sEventQueFormat = sEventFmt THEN
+		hFmt = FmtOpen("VoiceAlarmsFmt",sEventFmt,1)
+		WHILE TRUE DO
+			sAlarmFmt = "";
+			//Read any new alarms from the alarm event queue
+	    	IF QueRead(hQue, nRecord, sAlarmFmt, 1) = 0 THEN
+				IF DisableVoiceAlarms = 0 THEN			    	
+		    		//parse the string that was read from the alarm event queue
+			    	IF sAlarmFmt <> "" THEN
+			    		StrToFmt(hFmt,sAlarmFmt);
+						sName = StrTrim(FmtGetField(hFmt,"Name"));
+				    	sState = StrTrim(FmtGetField(hFmt,"State"));
+				    	sType = StrTrim(FmtGetField(hFmt,"Type"));
+				    	
+				    	//If the alarm isn't OFF and it is UNACKNOWLEDGED, then speak the alarm name
+				    	IF (sState <> "OFF") AND (sType = "UNACKNOWLEDGED") THEN
+					    	TextToSpeechSpeak(sName);
+					    END
+					END
+				END
+			END
+	    	SleepMS(10);
+		END
+	END
+	//In this example, This code will not get called as the oSpeech object will be cleaned up when the alarm server
+	//shuts down, however it is good practice to close up dispose of any .Net Objects when you are finished using them.
+	TextToSpeechDispose();
+	
+END

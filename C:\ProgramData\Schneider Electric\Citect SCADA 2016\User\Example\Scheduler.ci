@@ -1,0 +1,65 @@
+/*
+FUNCTION MySchdGetSpecialDays(STRING sCalendar)
+
+	ErrSet(1);
+
+	INT hSession = -1;
+	INT bDone = FALSE;
+	INT bClear = TRUE;
+
+	hSession = SchdSpecialItemOpen("", "GroupName,Name,Day,ID");
+	IF (hSession = -1) THEN RETURN; END
+
+	SchdSpecialItemFirst(hSession);
+
+	IF (SchdSpecialItemNumRecords(hSession) > 0) THEN
+	WHILE (NOT bDone) DO
+
+		MyCal_SetSelected(sCalendar, StrToTimestamp(SchdSpecialItemGetField(hSession, "Day"),15,0),
+				SchdSpecialItemGetField(hSession, "Name")+"^n"+SchdSpecialItemGetField(hSession, "GroupName"), bClear);
+		bClear = FALSE;
+
+		//MyListView_AddItem(sList, SchdSpecialItemGetField(hSession, "GroupName")+","+
+		//						SchdSpecialItemGetField(hSession, "Name")+","+
+		//						TimestampToStr(StrToTimestamp(SchdSpecialItemGetField(hSession, "Day"),15,0),5,0)+","+
+		//						SchdSpecialItemGetField(hSession, "ID"))
+
+		IF (SchdSpecialItemNext(hSession) > 0) THEN
+			bDone = TRUE;
+		END
+	END
+	END
+
+	SchdSpecialItemClose(hSession);
+END
+
+
+FUNCTION MySchdGetSpecialCat(STRING sList)
+
+	ErrSet(1);
+
+	INT hSession = -1;
+	INT bDone = FALSE;
+
+	hSession = SchdSpecialOpen("", "Name,ID");
+	IF (hSession = -1) THEN RETURN; END
+
+	SchdSpecialFirst(hSession);
+
+	IF (SchdSpecialNumRecords(hSession) <= 0) THEN
+		MyListView_AddItem(sList, "No Items");
+	ELSE
+	WHILE (NOT bDone) DO
+
+		MyListView_AddItem(sList, SchdSpecialGetField(hSession, "Name")+","+
+								SchdSpecialGetField(hSession, "ID"))
+
+		IF (SchdSpecialNext(hSession) > 0) THEN
+			bDone = TRUE;
+		END
+	END
+	END
+
+	SchdSpecialClose(hSession);
+END
+*/

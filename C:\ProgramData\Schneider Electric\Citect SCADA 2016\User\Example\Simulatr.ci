@@ -1,0 +1,796 @@
+//	FILE:		Simulatr.ci
+//
+//	DESCRIPTION:	The code in this section is used for simulating the 
+//			I/O device (PLC) to provide a realistic look and 
+//			feel to the example project.
+//
+//	NOTE:		You do not need this in your project.
+
+
+INT	DemoRunning = FALSE;
+
+//	FUNCTION:	Startup
+//
+//	DESCRIPTION:
+//			This FUNCTION IS called at Startup.
+//			It must be set to start on both the client and IOServer components.
+// 			The purpose of the function is to initialise and start the local
+//			variable and tag simulation functions.
+//
+FUNCTION
+Startup()
+
+	STRING	startupRestorePage;
+
+	CheckAnsiToOEM();
+	
+	// Register confirm_shutdown event handler
+	OnEvent(49, _ConfirmShutdown);
+
+	IF (ProcessIsClient()) THEN
+
+		// Due to security changes that affect the example projects in single-process mode,
+		// we currently login using the unsecure login function at startup if we are a client.
+		Login("engineer", "Citect");
+
+		// Start the process line client side code
+		ProdLineClientStartup();
+		// SPC Pareto simulation occurs on the client component, as these are local variables.
+		SPCParetoStartup();
+
+		// Restore startup page
+		startupRestorePage = ParameterGet("Page", "StartupRestore", "");
+		IF ("" <> startupRestorePage) THEN
+			ParameterPut("Page", "Startup", startupRestorePage);
+		END
+
+		// translate report to local language
+		TaskNew("TranslateReportTask", "30", 8);
+	END
+	
+	// Other simulations should only only run on the I/O server, as these are disk plc tags.
+	IF (ProcessIsServer("IOServer", "Cluster1", "IOServer")) THEN
+   		// Make sure that IO Devices are running
+  		WHILE (	IODeviceInfo("ProcLineDisk", 3) <> "1"
+				AND IODeviceInfo("plogic", 3) <> "1"
+				AND IODeviceInfo("RawMilk", 3) <> "1"
+				AND IODeviceInfo("Mixer", 3) <> "1"
+    				AND IODeviceInfo("DISK_PLC", 3) <> "1"
+				AND IODeviceInfo("SteelMillDisk", 3) <> "1") DO
+   			Sleep(1);
+   		END
+   		
+   		TaskNew("InitializeIOServer", "", 4);
+    END
+
+END
+
+
+//	FUNCTION:	_ConfirmShutdown
+//
+//	DESCRIPTION:
+//			Show a dialog page to allow the user to confirm the close of the runtime
+//
+PRIVATE
+INT FUNCTION _ConfirmShutdown()
+	INT x, y, winNo;
+	STRING pageShutdown = "!Shutdown";
+	REAL scaleX, scaleY;
+
+	// find centers of calling window
+	x = StrToInt(PageInfo(14)) + StrToInt(PageInfo(12)) / 2;
+	y = StrToInt(PageInfo(15)) + StrToInt(PageInfo(13)) / 2;
+	scaleX = x; scaleX = scaleX / StrToReal(PageInfo(16));
+	scaleY = y; scaleY = scaleY / StrToReal(PageInfo(17));
+
+	// check if window already open
+	winNo = WinNumber(pageShutdown);
+	IF (winNo > -1) THEN
+		// switch to opened window
+		WinGoto(WinNo);
+		WinPos(x - PageFileInfo(pageShutdown, 0) / 2, y - PageFileInfo(pageShutdown, 1) / 2);
+	ELSE
+		// pop up new window
+		IF (WinNewAt(pageShutdown, scaleX - PageFileInfo(pageShutdown, 0) / 2, scaleY - PageFileInfo(pageShutdown, 1) / 2, 2+8+128) > -1) THEN
+			WinSetName(pageShutdown);
+		END
+	END
+
+	// return TRUE to cancel the current operation and let the !Shutdown page decide
+	RETURN 1;
+END
+
+
+
+
+//	FUNCTION:	RestartForm
+//
+//	DESCRIPTION:
+//			The purpose of the function is to prompt the user for restaring
+//			Citect. After Citect restarts, the current page will be displayed
+//			automatically.
+//
+//			This is achieved by saving the current Startup page to parameter
+//			[Page]StartupRestore, and change the Startup page to the current
+//			page. When Citect is restarted, via the Startup() function in the
+//			Example project, the Startup page will be restored back to the way
+//			it was configured.
+//
+FUNCTION RestartForm()
+
+	INT errLevelOld;
+	INT choice;
+	STRING startupRestorePage;
+
+
+	errLevelOld = ErrSetLevel(1);
+	choice = Message("@(Restart Client)","@(Are you sure?)", 1);
+	ErrSetLevel(errLevelOld);
+
+	IF (0 = choice) THEN
+		// Save previous Startup Page and change startup Page to current page
+		startupRestorePage = ParameterGet("Page", "Startup", "Startup");
+		ParameterPut("Page", "StartupRestore", startupRestorePage);
+		ParameterPut("Page", "Startup", PageInfo(0));
+
+		// Restart client
+		ProcessRestart();
+	END
+
+END
+
+
+//	FUNCTION:	InitializeIOServer
+//
+//	DESCRIPTION:
+//			The purpose of the function is to initialise and start the local
+//			variable and tag simulation functions.
+//
+FUNCTION InitializeIOServer()
+	INT I;
+	
+	IF LOOP_1_P = 0 AND LOOP_2_P = 0 AND LOOP_3_P = 0 THEN   !Check if PID settings lost
+		Loop_5_PV = 1.3;				 !Set Process Varible to 1.3	
+		Loop_5_SP = 1.3;				 !Set Setpoint to 1.3
+		FOR I = 1 TO 5 DO
+			TagWrite("LOOP_"+IntToStr(I)+"_P",0.2,0); !Set loop1 to 5 Gain			
+			TagWrite("LOOP_"+IntToStr(I)+"_I",40,0)
+		END
+	END
+
+	FileCopy(PathToStr("[RUN]:cando.gif"), PathToStr("[DATA]:cando.gif"), 1); 	! This code copies the necessary bitmaps to the DATA directory for the HTML report.
+											! where the HTM file is stored.
+											! You would not normally need this in a real app as the files
+											! would be stored there permanently.
+											! File is only copied if the time is different.
+
+	IF Loop_5_PV < 1.2 THEN		!In case Disk PLC gets destroyed.	
+		Loop_5_PV = 1.5;
+		Loop_5_SP = 1.5;
+	END
+
+	TaskNew( "PID", "^"LOOP_1^",20", 0 );	!Start PID Simulations
+	TaskNew( "PID", "^"LOOP_2^",20", 0 );
+	TaskNew( "PID", "^"LOOP_3^",20", 0 );
+	TaskNew( "PID", "^"LOOP_4^",20", 0 );
+	TaskNew( "PID", "^"LOOP_5^",20", 0 );
+	TaskNew( "WaterTankLevel","", 0 );	!Start WaterTank Simulation
+	TaskNew( "Always","",0);
+	TaskNew( "PIDSPSim", "^"LOOP_1^"", 0 );
+
+	VALVE_512_M = 1;		! Set Valve 512 to Auto
+	Valve_1_CMD = 0;
+	Valve_2_CMD = 0;
+	Valve_3_CMD = 0;
+	Valve_4_CMD = 0;
+	Valve_5_CMD = 0;
+	PUMP_A_M = 1;
+	DiskFilter=1;			! Turn Filter On
+	Stockpile =50;			! Start Stockpile at 50%
+	Oper_Input_Real = 123.45;
+	Oper_Input_Integer = 88.8;
+	Oper_Input_String = "Temperature Meter";
+	
+	IF PUMP_A_TOT > 100000 THEN
+		PUMP_A_TOT = 0;
+		PUMP_A_AS = 0;
+		PUMP_A_ART = 0;
+	END
+
+	// Start the server part simulation code of the process line
+	ProdLineServerStartup();
+	
+	SteelMill_ServerStartup();
+
+	EnergyManagementStart();
+
+	StartRawMilk();
+END
+
+
+// 	FUNCTION:		Always
+//
+//	DESCRIPTION:	This function will run continuosly until Citect is 
+//			Shutdown
+
+
+FUNCTION
+Always()
+	INT 	I;
+	WHILE TRUE DO
+		Sleep(1);			!Run once per second
+
+		CPU_Usage=CitectInfo("General","General",0);
+
+		FilterPage();
+		I=I+1;
+		IF I > 4 THEN		!Run StockPile Simulation every 5 Seconds	
+			StockPileSim();
+			I = 0;
+		END
+	END
+END
+
+//	FUNCTION:	CheckAnsiToOEM
+//	
+//	DESCRIPTION:	Checks parameter in Citect.ini file. Applies when overwriting
+//			an old version of Citect (pre 5.01).
+//
+
+FUNCTION
+CheckAnsiToOEM()
+
+	IF ParameterGet("CTEDIT","ANSItoOEM"," ") = "1" THEN	!Ensure ANSItoOEM parameter set correctly
+		ParameterPut("CTEDIT","ANSItoOEM","0");
+		Message("Parameter Incorrect", "Incorrect Parameter Found ^n Correcting and Restarting Citect",48);
+		Sleep(2);
+		Shutdown("", PathToStr("[RUN]:"), 2);
+	END
+END
+
+
+
+
+//	FUNCTION:	Temp_Profile_Sim
+//	
+//	DESCRIPTION:	Simulation for Temperature Profile.
+
+INT 	Temp_Profile_Running 	= 0;	
+
+FUNCTION
+Temp_Profile_Sim()
+	
+	IF Temp_Profile_Running THEN
+		Beep(1);
+		Halt();
+	END
+	Temp_Profile_Running = 1;
+
+	Ramp_Temp_Profile( 6, 100);
+	SleepMS(6000);
+	Ramp_Temp_Profile( 7, 175);
+	SleepMS(6000);
+	Ramp_Temp_Profile( 6, 70);	
+	SleepMS(5000);
+	Ramp_Temp_Profile( 9, 22);
+	Temp_Profile_Running = 0;
+END
+
+//	FUNCTION:	Ramp_Temp_Profile
+//
+//	DESCRIPTION:	Ramps Temp_Profile Tag
+
+FUNCTION
+Ramp_Temp_Profile( REAL rRampTime, INT RampTo=0)
+	INT	iStart;
+	INT 	iTimeExp;
+	INT 	iRampValue;
+	INT 	iRampFrom;
+	
+	iStart = SysTime();
+
+	rRampTime=rRampTime *1000;	
+	iRampFrom = Temp_Profile;
+	
+	iTimeExp=(SysTime() - iStart);
+	
+	WHILE rRampTime > iTimeExp DO
+		iRampValue=(iTimeExp/ rRampTime) * (RampTo-iRampFrom);
+		Temp_Profile = iRampFrom + iRampValue;
+		SleepMS(500);
+		iTimeExp=(SysTime() - iStart);
+	END
+	Temp_Profile = iRampFrom + iRampValue;
+END
+
+//	FUNCTION:	DynamicResetAll
+//
+//	DESCRIPTION:	Function resets all the variables that are used on 
+//			the Dynamic_1 page.
+
+FUNCTION
+DynamicResetAll()
+	H_Fill = 0;
+	V_Fill = 100;
+	V_Size = 100;
+	H_Size = 100;
+	H_Movement = 0;
+	V_Movement = 0;
+	Rotation = 0;
+	Hide=0;
+	Fill_A=1;
+	Fill_B=0;
+	Fill_C=0;
+END
+
+//  	---------------		Recipe Page Simulation		---------------
+
+//	FUNCTION:	Process
+//
+//	DESCRIPTION:	This function performs the Simulation for the Recipe
+//			Page
+
+FUNCTION
+Process()
+	INT 	Salt;
+	INT 	Sugar;
+	INT 	Flour;
+	INT 	Milk;
+	INT 	Water;
+
+	Salt  = SaltPLC  * Batch;
+	Sugar = SugarPLC * Batch;
+	Flour = FlourPLC * Batch;
+	Milk  = MilkPLC  * Batch;
+	Water = WaterPLC * Batch;
+
+	MIX_RUNNING = TRUE;
+		
+	WHILE ((Salt> 0) OR (Sugar > 0) OR (Flour > 0) OR (Milk > 0) OR (Water > 0)) DO
+
+		IF (Salt > 0) THEN
+			VALVE_1_CMD = TRUE;
+			Salt = Salt - 1;
+		ELSE
+			VALVE_1_CMD = FALSE;
+		END
+		IF (Sugar > 0) THEN
+			VALVE_2_CMD = TRUE;
+			Sugar = Sugar - 1;
+		ELSE
+			VALVE_2_CMD = FALSE;
+		END
+		IF (Flour > 0) THEN
+			VALVE_3_CMD = TRUE;
+			Flour = Flour - 50;
+		ELSE
+			VALVE_3_CMD = FALSE;
+		END
+		IF (Milk > 0) THEN
+			VALVE_4_CMD = TRUE;
+			Milk = Milk - 20;
+			MILK_LEVEL = MILK_LEVEL - (32000/(MilkPLC*Batch));
+		ELSE
+			VALVE_4_CMD = FALSE;
+		END
+		IF (Water > 0) THEN
+			VALVE_5_CMD = TRUE;
+			Water = Water - 300;
+		ELSE
+			VALVE_5_CMD = FALSE;
+		END
+
+		IF (VALVE_1_CMD OR VALVE_2_CMD OR VALVE_3_CMD) THEN
+			PUMP_2_CMD = TRUE;
+		ELSE
+			PUMP_2_CMD = FALSE;
+		END
+
+		Sleep(1);
+	END
+	
+	VALVE_1_CMD = FALSE;
+	VALVE_2_CMD = FALSE;
+	VALVE_3_CMD = FALSE;
+	VALVE_4_CMD = FALSE;
+	VALVE_5_CMD = FALSE;
+
+	Pump_1_Cmd = TRUE;
+	Sleep(3);
+	PUMP_1_CMD  = FALSE;
+	PUMP_2_CMD  = FALSE;
+	MIX_RUNNING = FALSE;
+END
+
+//	FUNCTION:	WaterTankLevel
+//
+//	DESCRIPTION:	Simulates water tank level
+
+FUNCTION
+WaterTankLevel()
+	WHILE TRUE DO
+		SELECT CASE Water_Level
+		CASE IS < 8000
+			Water_Tank_Lo_Switch = 1;
+		CASE IS > 28000
+			Water_Tank_Lo_Switch = 0;
+		END SELECT	
+		IF Water_Tank_Lo_Switch THEN
+			Water_Level = Water_Level + 550;
+		END 
+		IF Valve_5_Cmd = TRUE AND (Water_Level >=600) THEN
+			Water_Level = Water_Level -600;
+		END
+		Sleep(1);
+	END
+END
+
+// 	---------		PID Loop Simulation	---------------------------
+//	
+//	FUNCTION:	PID
+//
+// 	DESCRIPTION:	This PID function is to provide a realistic look and
+//			feel and is not intended to be used for control of a
+//			process. If you wish to perform PID type control in 
+//			Citect it is better to use package designed for PID
+//			control or alternately write an algorithm written as
+//			a DLL. 
+//
+//	AUTHOR: 	Steve Schilg
+//	VERSION: 	3.0
+//	DATE: 		2 Apr 96
+//
+//  	NOTE:		This function should be called only once for each 
+//			tag name and should run until Citect Shuts down.
+//			Use TaskNew as follows to start this 
+//			Function: TaskNew( "PID", "^"LOOP_1^"", 0 );
+//
+//  	sTag		= The Loop tagname as a String - do not include 
+//			the attribute. Tag can be either Real or Integer.
+//
+//	REVISIONS: 	2 Apr 96
+//			Replaced DspInfoField() with TagInfo() function as 
+//			it runs faster.
+//			Removed ReReads as these are not necessary with the
+//			TagRead function.
+//			Used sleepMS(1000) instead of Sleep(1) to provide 
+//			more precise timing
+//			3 Dec 96
+//			Modified timing to execute more deterministically
+
+FUNCTION
+PID(STRING sTAG,INT iLag)
+	
+	REAL 	Dev,oDev, rGO,rIO,rDO,rZero,rFull,rOZero,rOFull;
+	REAL 	rOP,rPV, rSP, rP,rI,rD,rFeedBack;
+	INT  	iOPM;
+	INT  	iSleepTime;
+	INT  	iStart;
+	INT     retrievedProps = 0;
+
+	WHILE retrievedProps = 0 DO
+		rOZero = TagGetProperty(sTag+"_OP", "EngUnitsLow", 0); 				!Get Output Range
+		IF (IsError() = 0) THEN
+			rOFull = TagGetProperty(sTag+"_OP", "EngUnitsHigh", 0);
+			IF (IsError() = 0) THEN
+				rZero = TagGetProperty(sTag+"_PV", "EngUnitsLow", 0);		!Get PV Range
+				IF (IsError() = 0) THEN
+					rFull = TagGetProperty(sTag+"_PV", "EngUnitsHigh", 0);
+					IF (IsError() = 0) THEN
+						retrievedProps = 1;
+					END
+				END
+			END
+		END
+
+		IF (retrievedProps = 0) THEN
+			SleepMS(100);
+		END
+	END
+
+	rFeedback	=16000;					!Initialise Feedback value
+		
+	WHILE TRUE DO
+		iStart = SysTime();				!Must Execute once per second for Integral Action to be
+								!correct
+		iOPM	=TagRead(sTag+"_OPM",0);		!Read Output Mode
+		IF iOPM = 0 THEN				!If in Manual
+			rOP=TagRead(sTag+"_OP",0);		!Read Output Value
+			rFeedBack = EngToGeneric(rOP,rOZero,rOFull);	!Set FeedBack = Output	
+		ELSE					
+			rPV=TagRead(sTag+"_PV", 0);		!Read PV
+			rSP=TagRead(sTag+"_SP", 0);		!Read SP
+						
+			rPV=EngToGeneric(rPV,rZero,rFull);	!Convert PV to Generic
+			rSP=EngToGeneric(rSP,rZero,rFull);	!Convert SP to Generic
+	
+			rP=TagRead(sTag+"_P", 0);		!Read the Gain Constant
+			rI=TagRead(sTag+"_I", 0);		!Read the Integral Constant
+			rD=TagRead(sTag+"_D", 0);		!Read the Derivitive Constant
+
+			Dev = rSP-rPV ;				!Calc Deviation
+			rGO = rP * Dev;				!Calc Gain Output
+			rIO = rI/60 * rGO;			!Calc Integral Output
+			rDO = rD * (Dev-oDev) * 60 ;		!Calc Derivitive Output
+			rOP = rFeedBack + rGO + rIO+rDO;	!Total Output		
+			rFeedBack=rFeedBack+rIO;		!Remember Feedback
+			oDev=Dev;				!Remember deviation
+
+			IF rOP = 0 THEN				!Prevent Divide by Zero
+				rOP= rOZero;			
+			ELSE
+				rOP= (rOP/32000.00) * (rOFull-rOZero) + rOZero;   !Scale for Output
+			END	
+		
+			IF rOP > rOFull THEN			!Output high limit
+				rOP = rOFull;	
+			END
+
+			IF rOP < rOZero THEN			!Output Low limit
+				rOP = rOZero;
+			END
+		
+			TagWrite(sTag + "_OP",RealToStr(rOP,8,3) , 0);	!Write to Ouput
+		END
+		ProcSim(sTag,rOP,rOZero,rOFull,rZero,rFull,iLag);	
+		iSleepTime  = 1000 - SysTimeDelta( iStart);
+		IF iSleepTime < 1 THEN 				!Prevent negative sleep time!
+			iSleepTime =1;
+		END
+		SleepMS( iSleepTime);
+	END
+END
+
+
+// 	FUNCTION: 	PIDSim
+//
+//	DESCRIPTION:	This function is designed to run continuously as a 
+//				background Cicode task to simulate a PID SP change
+
+FUNCTION
+PIDSPSim(STRING sTag)
+
+	REAL	rZero, rFull, rSP;
+
+
+	IF (ParameterGet("DEBUG", "PIDSPSim", "0") <> "1") THEN RETURN; END
+
+	rZero	= TagGetProperty(sTag+"_PV", "EngUnitsLow", 0);		!Get PV Range
+	rFull	= TagGetProperty(sTag+"_PV", "EngUnitsHigh", 0);
+
+	WHILE TRUE DO
+		rSP=TagRead(sTag+"_SP", 0);		!Read SP
+
+		IF (rSP > (((rFull-rZero)/2) + rZero)) THEN
+			rSP = ((rFull-rZero)*0.25) + rZero;
+		ELSE
+			rSP = ((rFull-rZero)*0.8) + rZero;
+		END
+
+		TagWrite(sTag+"_SP", RealToStr(rSP,8,3) , 0);	!Write SP
+
+		Sleep(300);
+	END
+END
+
+
+// 	FUNCTION: 	ProcSim
+//
+//	DESCRIPTION:	This function is designed to run continuously as a 
+//				background Cicode task to simulate a Process 
+
+FUNCTION
+ProcSim(STRING sTag, REAL rOP, REAL rOZero, REAL rOFull, REAL rZero, REAL rFull, INT iLag)
+
+	REAL	rPV;
+	INT	iPV;
+	INT	iOP;
+
+	rPV = TagRead(sTag+"_PV", 0);				! Read PV
+	iPV = EngToGeneric(rPV,rZero,rFull);			! Convert PV to Generic
+	
+	iOP = EngToGeneric(rOP,rOZero,rOFull);
+
+	rPV = rPV + (iOP - iPV)*(rFull - rZero)/32000/iLag;
+
+	TagWrite(sTag + "_PV",RealToStr(rPV,8,3) , 0);	! Write to PV
+	
+END
+
+//	------------	Filter Page Simulations 	-------------------
+//
+//	FUNCTION:	FilterPage	
+//
+//	DESCRIPTION:	These functions provide Simulation for the Filter 
+//			page.
+
+FUNCTION
+FilterPage()
+	
+	IF ((VALVE_512_CMD=1) AND (PUMP_A_CMD=1)) THEN	!Level Simulation
+		IF FILTER_TANK_LEV > 0 THEN	
+			FILTER_TANK_LEV = FILTER_TANK_LEV - 1;
+		END
+	ELSE
+		IF FILTER_TANK_LEV < 100 THEN
+			FILTER_TANK_LEV = FILTER_TANK_LEV + 1;
+		END
+	END
+
+	IF VALVE_512_M = 1 THEN		!If in Auto			! Auto Valve Control
+	
+		IF FILTER_TANK_LEV > 95 THEN
+			VALVE_512_CMD = 1;
+		END
+		IF FILTER_TANK_LEV < 5 THEN
+			VALVE_512_CMD = 0;
+		END
+	END
+
+	IF PUMP_A_M = 1 THEN						! Auto Pump Control
+		IF FILTER_TANK_LEV > 95 THEN
+			PUMP_A_CMD=1;
+		END
+		IF FILTER_TANK_LEV < 5 THEN
+			PUMP_A_CMD = 0;
+		END
+	END
+END
+
+// 	----------- 	Filter Page StockPile Simulation --------------
+
+FUNCTION
+StockPileSim()
+	IF DiskFilter THEN
+		STOCKPILE=STOCKPILE + 2;			
+		IF STOCKPILE = 100 THEN
+			STOCKPILE=0;
+		END	
+	END
+END
+
+// 	---------		 Pareto Chart Simulation 	----------
+
+//	FUNCTION:	SPCParetoStartup
+//	DESCRIPTION:	Spawns threads to handle SPC tags simulation 
+	
+FUNCTION
+SPCParetoStartup()
+	!Tag waveform period min max offset
+
+	TagSimulate( "TT001", "RANDOM", 10, 5, 79, 0);
+	TagSimulate( "TT002", "SINE", 120, 10, 30, 0);
+	TagSimulate( "TT003", "SQUARE", 45, 40, 59, 0);
+	TagSimulate( "TT004", "SAW", 78, 5, 100, 0);
+	TagSimulate( "TT005", "RANDOM", 36, 80, 99, 0);
+	TagSimulate( "TT006", "RANDOM", 58, 10, 80, 0);
+	TagSimulate( "TT007", "SINE", 10, 5, 79, 0);
+	TagSimulate( "TT008", "TRIANG", 30, 20, 68, 0);
+	TagSimulate( "TT009", "SINE", 25, 5, 79, 0);
+	TagSimulate( "TT010", "TRIANG", 30, 20, 68, 0);
+END
+
+
+//	FUNCTION:	TagSimulate
+//
+//	DESCRIPTION:	Spawns a task that runs forever which will generate
+//			data for a tag based on the waveform specified. This 
+//			function also prechecks for data type and range 
+//			checkng.
+//		
+//	REV	DATE		WHO		DESCRIP
+//	1.0	23/3/96	A.Winter	Original
+//
+//	CALLED BY:	Kernel or TagSimulateForm()
+//
+//	ARGUMENTS:
+//		STRING	sTag 	The variable tag to simulate
+//		STRING	sWaveForm   On of the cicode waveforms "SQUARE", "RANDOM", "SINE", "TRIANG", "SAW"
+//		INT	iPeriod	The period of the waveform cycle in seconds
+//		REAL	rMin	The minimum of the generated data required
+//		REAL	rMax	The maximum of the generated data required
+//		INT	iOffset	Offsets the start of the waveform cycle
+//
+//	RETURNED VALUE:
+//		The handle to the task if spawned OK else -1
+//
+//	NOTES:
+
+
+INT
+FUNCTION
+TagSimulate( STRING sTag, STRING sWaveForm, INT iPeriod = 60, REAL rMin = 0, REAL rMax = 100, INT iOffset = 0)
+	INT	hSimTask	= -1;
+	INT	iRangeOK	= FALSE;
+	STRING	sType		= "";
+
+	ErrSet( 1);
+	TagRead( sTag);
+	ErrSet( 0);
+	IF IsError() = 0 THEN		!Check it exists
+		sType = DspInfoField( 0, sTag, "TYPE")
+		IF sType = "DIGITAL" THEN
+			rMin = 0;
+			rMax = 1;
+			sWaveForm = "SQUARE";
+			iRangeOK  = TRUE;
+		END
+		IF sType <> "STRING" AND sType <> "DIGITAL" AND 
+			StrToReal( TagGetProperty( sTag, "EngUnitsLow", 0)) <= rMin AND StrToReal( TagGetProperty( sTag, "EngUnitsHigh", 0)) >= rMax THEN
+			iRangeOK  = TRUE;
+		END
+		IF iRangeOK THEN
+			hSimTask = TaskNew( "_TagSimulateTask", "^""+sTag +"^",^""+ sWaveForm +"^","+
+				   iPeriod:### +",^"" + rMin:#####.## +"^",^""+ rMax:####.## +"^","+ iOffset:###, 0);
+			IF hSimTask = -1 THEN
+				ErrLog( " TagSimulate: Error task failed for tag:"+sTag);
+			END
+		ELSE
+			ErrLog( " TagSimulate: Error simulate range:"+ rMin:# +" - "+ rMax:# +" beyond tag:"+sTag+" engineering range");
+		END
+
+	ELSE
+		ErrLog( " TagSimulate: Error tag:"+ sTag +" does not exist");
+	END
+	RETURN( hSimTask);
+END
+
+
+//
+//	FUNCTION NAME:	_TagSimulateTask
+//
+//	FUNCTION DESCRIPTION:
+//		The task spawned from TagSimulate function.
+//
+//	REV	DATE		WHO		DESCRIP
+//	1.0	23/3/96	A.Winter	Original
+//	1.1 18/2/97	S.Schilg	rewrote using SELECT CASE
+//
+//	CALLED BY:
+//		TagSimulate()
+//
+//	ARGUMENTS:
+//		STRING	sTag		The variable tag to simulate
+//		STRING	sWaveForm   On of the cicode waveforms "SQUARE", "RANDOM", "SINE", "TRIANG", "SAW"
+//		INT		iPeriod	The period of the waveform cycle in seconds
+//		REAL		rMin		The minimum of the generated data required
+//		REAL		rMax		The maximum of the generated data required
+//		INT		iOffset	Offsets the start of the waveform cycle
+//
+//	RETURNED VALUE:
+//
+//	NOTES:
+//
+//
+
+FUNCTION
+_TagSimulateTask( STRING sTag, STRING sWaveForm, INT iPeriod = 60, REAL rMin = 0, REAL rMax = 100, INT iOffset = 0)
+
+	SELECT CASE StrUpper( sWaveForm)
+	CASE "SQUARE" 
+		WHILE TRUE DO
+			Sleep( 1);
+			TagWrite( sTag, TestSquareWave( iPeriod, rMin, rMax, iOffset));
+		END
+	CASE "SINE" 
+		WHILE TRUE DO
+			Sleep( 1);
+			TagWrite( sTag, TestSinWave( iPeriod, rMin, rMax, iOffset));
+		END
+	CASE "RANDOM" 
+		WHILE TRUE DO
+			Sleep( 1);
+			TagWrite( sTag, TestRandomWave( iPeriod, rMin, rMax, iOffset));
+		END
+	CASE "SAW" 
+		WHILE TRUE DO
+			Sleep( 1);
+			TagWrite( sTag, TestSawWave( iPeriod, rMin, rMax, iOffset));
+		END
+	CASE "TRIANG" 
+		WHILE TRUE DO
+			Sleep( 1);
+			TagWrite( sTag, TestTriangWave( iPeriod, rMin, rMax, iOffset));
+		END
+	END SELECT
+END

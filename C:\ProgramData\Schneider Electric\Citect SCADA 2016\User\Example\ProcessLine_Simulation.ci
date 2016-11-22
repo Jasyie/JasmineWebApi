@@ -1,0 +1,1112 @@
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//	 Copyright © 2015 Schneider Electric (Australia) Pty Ltd. All rights reserved.
+//
+// 	FILE:	ProcessLine_Simulation.ci
+//
+//	DESCRIPTION:
+//
+//		Contains functions associated with the ProcessLine example. Provides simulation 
+//		of Process Line equipment and configuration for some page components.
+//
+//	PUBLIC FUNCTIONS:
+//
+//				
+// 	NOTES:
+//
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+//	MODULE VARIABLES
+
+// Mouse Button Variables
+// ----------------------
+// Stores the details of items that have been clicked
+INT fhHandlerChain = -1;
+INT fnButtonDown = 0;
+
+// Speed
+// -----
+// These can be changed to vary the default speed of various 
+// demo components. The line speed can be changed at runtime 
+// by the user so this is just the initial setting.
+INT miDefaultLineSpeed 	= 20;
+INT miDefaultFillSpeed 	= 25;
+INT miDefaultCapSpeed 	= 50;
+INT miDefaultLabelSpeed	= 25;
+
+// Initial Levels
+// --------------
+// The tank levels and cap stock have an initial setting.
+// Setting these nice and low will ensure that filling
+// procedures will run soon after the demo starts.
+//INT miInitialTank1Level	= 250;
+//INT miInitialTank2Level	= 850;
+INT miInitialCapStock	= 50;
+
+// Refill Levels and Costs
+// -----------------------
+// These set the level at which the tanks and caps will be
+// refilled and also the cost of filling and capping bottles. 
+INT miFillCost			= 60;
+INT miCapCost			= 10;
+INT miTankFillLevel		= 61;
+INT miCapFillLevel 		= 30;
+
+
+// Event Trend Data Arrays
+// -----------------------
+// Used for pushing data to the bottle rate event trend.
+REAL marSingleValue[1];
+INT	 manSingleTime[1];
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						ProdLineServerStartup()
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Starts the ProdLine simulation on the IOServer. 
+//			Note that this is to ensure that there is one and only one instance of the similation code running
+//			
+// 		ARGUMENTS:
+//
+//			None
+//			
+//     	RETURNED VALUE: 
+//
+//			None
+//
+//		PSEUDO CODE:
+//
+//			Starts the simulation tasks
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+FUNCTION ProdLineServerStartup()
+
+	TaskNew("ProdLine_SimulateConveyor1","",8);
+	TaskNew("ProdLine_SimulateFiller1","",8);
+	TaskNew("ProdLine_SimulateCapper1","",8);
+	TaskNew("ProdLine_SimulateLabeler1","",8);
+	
+END
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						ProdLineClientStartup()
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Register the mouse down event handling function. 
+//			
+// 		ARGUMENTS:
+//
+//			None
+//			
+//     	RETURNED VALUE: 
+//
+//			None
+//
+//		PSEUDO CODE:
+//
+//			Register the mouse down event handling function
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+FUNCTION ProdLineClientStartup()
+
+	// Set the mouse down event function so that we can
+	// animate out XP style buttons
+	DspRegisterMouseDown();
+END
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						ProdLine_SimulateConveyor1()
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Resets and starts the ProdLine conveyer simulation. This is 
+//			started as a task once per Citect runtime.
+//				
+// 		ARGUMENTS:
+//
+//			None
+//			
+//     	RETURNED VALUE: 
+//
+//			None
+//
+//		PSEUDO CODE:
+//
+// 		Initialize default speeds and levels
+//		Initialize tank status
+//		Initialize bottle positions and status
+//		Initialize filler status
+//		Initialize capper status
+//		Initialize labeller status
+//		Initialize busy bottle position group
+//		WHILE 1 DO
+//			Calculate next position for all bottles
+//		END
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+FUNCTION ProdLine_SimulateConveyor1();
+	REAL SetPoint;
+	INT TimeDelta;
+
+	// Initialise Defaults on first run
+	
+	IF Bottler_Tank1_InUse = 0 AND Bottler_Tank2_InUse 	 = 0 THEN
+
+		// Default Speeds and Levels
+		Bottler_Conveyor_Speed	 = miDefaultLineSpeed;
+		Bottler_Filler_Speed 	 = miDefaultFillSpeed;
+		Bottler_Cap_Speed 	 = miDefaultCapSpeed;
+		Bottler_Label_Speed 	 = miDefaultLabelSpeed;
+		Bottler_Tank1_InUse 	 = 1;
+		Bottler_Tank1_OutletValve = 1;	
+		Bottler_Tank2_InUse 	 = 0;
+		Bottler_Tank2_OutletValve = 0;	
+		Bottler_Cap_Stock = miInitialCapStock;
+		
+
+	//	Bottler_Tank1_Level	 = miInitialTank1Level;
+	//	Bottler_Tank2_Level	 = miInitialTank2Level;
+	END
+	IF Bottler_Tank1_Level <= miTankFillLevel THEN
+		Bottler_Tank1_InUse = 0;
+		Bottler_Tank1_OutletValve = 0;	
+		Bottler_Tank2_InUse = 1;
+		Bottler_Tank2_OutletValve = 1;	
+		Bottler_Tank1_BatchID = "";
+		Bottler_Batch_ID = "";
+		TaskNew("ProdLine_SimulateTankFill", "1", 0);
+	END			
+	IF Bottler_Tank2_Level <= miTankFillLevel THEN
+		Bottler_Tank1_InUse = 1;
+		Bottler_Tank1_OutletValve = 1;	
+		Bottler_Tank2_InUse = 0;
+		Bottler_Tank2_OutletValve = 0;	
+		Bottler_Tank2_BatchID = "";
+		Bottler_Batch_ID = "";
+		TaskNew("ProdLine_SimulateTankFill", "2", 0);
+	END			
+
+	// Initialise Bottles and devices
+		
+		// Tank status
+		Bottler_Tank1_Filling  = 0;
+		Bottler_Tank2_Filling  = 0;
+		Bottler_Tank1_Cleaning = 0;
+		Bottler_Tank2_Cleaning = 0;
+	
+		// Bottle positions
+		Bottler_Conveyor_Bottle1_Position = 0;
+		Bottler_Conveyor_Bottle2_Position = 0;
+		Bottler_Conveyor_Bottle3_Position = 0;
+		Bottler_Conveyor_Bottle4_Position = 0;
+		Bottler_Conveyor_Bottle5_Position = 0;
+		Bottler_Conveyor_Bottle6_Position = 0;
+		Bottler_Conveyor_Bottle7_Position = 0;
+		Bottler_Conveyor_Bottle8_Position = 0;
+		Bottler_Conveyor_Bottle9_Position = 0;
+		Bottler_Conveyor_Bottle10_Position = 0;
+		Bottler_Conveyor_Bottle11_Position = 0;
+		Bottler_Conveyor_Bottle12_Position = 0;
+		Bottler_Conveyor_Bottle13_Position = 0;
+		Bottler_Conveyor_Bottle14_Position = 0;
+		Bottler_Conveyor_Bottle15_Position = 0;
+		Bottler_Conveyor_Bottle16_Position = 0;
+	
+		// Bottle status 
+		// (empty=0 / filled=1 / capped=2 / labelled=3)
+		Bottler_Conveyor_Bottle1_Status = 0;
+		Bottler_Conveyor_Bottle2_Status = 0;
+		Bottler_Conveyor_Bottle3_Status = 0;
+		Bottler_Conveyor_Bottle4_Status = 0;
+		Bottler_Conveyor_Bottle5_Status = 0;
+		Bottler_Conveyor_Bottle6_Status = 0;
+		Bottler_Conveyor_Bottle7_Status = 0;
+		Bottler_Conveyor_Bottle8_Status = 0;
+		Bottler_Conveyor_Bottle9_Status = 0;
+		Bottler_Conveyor_Bottle10_Status = 0;
+		Bottler_Conveyor_Bottle11_Status = 0;
+		Bottler_Conveyor_Bottle12_Status = 0;
+		Bottler_Conveyor_Bottle13_Status = 0;
+		Bottler_Conveyor_Bottle14_Status = 0;
+		Bottler_Conveyor_Bottle15_Status = 0;
+		Bottler_Conveyor_Bottle16_Status = 0;
+	
+		// Filler state and initial rate
+		Bottler_Filler_Level = 0;
+		Bottler_Filler_Nozzle = 0;
+		Bottler_Filler_Rate = 1;
+	
+		// Capper state and stock level
+		Bottler_Cap_Level = 0;
+		Bottler_CapConveyor = 0;
+		Bottler_Cap_Direction = 0;
+		Bottler_Cap_Complete = 0;
+		
+		// Labeller state
+		Bottler_Label_Level = 0;
+		Bottler_Label_Direction = 0;	
+		
+		// Filling Station Status
+		// ----------------------
+		// The Target variables are set when a bottle is approaching
+		// the filling station and it has been assigned to a specific
+		// position. The Ready flag is set when the Target bottle
+		// arrives at that position. Fill positions go from 1-5 when
+		// looking right to left on the Process Line page.
+		Bottler_Filler1_Target 	= 0;
+		Bottler_Filler2_Target 	= 0;
+		Bottler_Filler3_Target 	= 0;
+		Bottler_Filler4_Target 	= 0;
+		Bottler_Filler5_Target 	= 0;
+		Bottler_Filler1_Ready 	= 0;
+		Bottler_Filler2_Ready 	= 0;
+		Bottler_Filler3_Ready 	= 0;
+		Bottler_Filler4_Ready 	= 0;
+		Bottler_Filler5_Ready 	= 0;
+		
+		// Capper and Labeler Status
+		// -------------------------
+		// Same concept as the Filling Station status above. Each Capper 
+		// and Labeler position will have a target bottle assigned as it
+		// approached, but will not activate until the Ready state is achieved.
+		Bottler_Cap1_Target 	= 0;
+		Bottler_Cap2_Target 	= 0;
+		Bottler_Cap1_Ready 		= 0;
+		Bottler_Cap2_Ready 		= 0;
+		Bottler_Label1_Target	= 0;
+		Bottler_Label2_Target	= 0;
+		Bottler_Label1_Ready 	= 0;
+		Bottler_Label2_Ready 	= 0;
+	
+	// Wait for any pending write
+	SleepMS(1000);
+	
+	// This group holds all busy positions on the conveyer
+	// As a bottle moves through and area, it maintains all
+	// positions it is covering in the busy group and frees
+	// positions as it moves out of them.	
+	INT	hBusy;
+	hBusy = GrpOpen("ProdLine1Busy",2);
+	GrpClose(hBusy);
+	hBusy = GrpOpen("ProdLine1Busy",2);
+	
+	ErrSet(1);
+	WHILE (1) DO
+		TimeDelta = SysTime();	
+		// Update the position of each bottle. This basically increments the position
+		// of the bottles if they are moving or maintains their position if they are
+		// in the middle of a process (filling, capping or labelling).
+
+		IF (EquipGetProperty("Plant.Bottler", "State",1) = "Off" OR EquipGetProperty("Plant.Bottler", "State",1) = "Maintenance") THEN
+			IF Bottler_Tank1_Level AND NOT Bottler_Tank1_Cleaning THEN
+				Bottler_Tank1_OutletValve = 1;	
+				Bottler_Tank1_BatchID = "";
+				TaskNew("ProdLine_SimulateTankFill", "1", 0);
+			END
+			IF Bottler_Tank2_Level AND NOT Bottler_Tank2_Cleaning THEN
+				Bottler_Tank2_OutletValve = 1;	
+				Bottler_Tank2_BatchID = "";
+				TaskNew("ProdLine_SimulateTankFill", "2", 0);
+			END
+			Bottler_Batch_ID = "";
+		END
+		
+		IF Bottler_Conveyor_Speed > 0 THEN
+			Bottler_Conveyor_Bottle1_Position = ProdLine_Line1Position(hBusy,1,Bottler_Conveyor_Bottle1_Position);
+			Bottler_Conveyor_Bottle2_Position = ProdLine_Line1Position(hBusy,2,Bottler_Conveyor_Bottle2_Position);
+			Bottler_Conveyor_Bottle3_Position = ProdLine_Line1Position(hBusy,3,Bottler_Conveyor_Bottle3_Position);
+			Bottler_Conveyor_Bottle4_Position = ProdLine_Line1Position(hBusy,4,Bottler_Conveyor_Bottle4_Position);
+			Bottler_Conveyor_Bottle5_Position = ProdLine_Line1Position(hBusy,5,Bottler_Conveyor_Bottle5_Position);
+			Bottler_Conveyor_Bottle6_Position = ProdLine_Line1Position(hBusy,6,Bottler_Conveyor_Bottle6_Position);
+			Bottler_Conveyor_Bottle7_Position = ProdLine_Line1Position(hBusy,7,Bottler_Conveyor_Bottle7_Position);
+			Bottler_Conveyor_Bottle8_Position = ProdLine_Line1Position(hBusy,8,Bottler_Conveyor_Bottle8_Position);
+			Bottler_Conveyor_Bottle9_Position = ProdLine_Line1Position(hBusy,9,Bottler_Conveyor_Bottle9_Position);
+			Bottler_Conveyor_Bottle10_Position = ProdLine_Line1Position(hBusy,10,Bottler_Conveyor_Bottle10_Position);
+			Bottler_Conveyor_Bottle11_Position = ProdLine_Line1Position(hBusy,11,Bottler_Conveyor_Bottle11_Position);
+			Bottler_Conveyor_Bottle12_Position = ProdLine_Line1Position(hBusy,12,Bottler_Conveyor_Bottle12_Position);
+			Bottler_Conveyor_Bottle13_Position = ProdLine_Line1Position(hBusy,13,Bottler_Conveyor_Bottle13_Position);
+			Bottler_Conveyor_Bottle14_Position = ProdLine_Line1Position(hBusy,14,Bottler_Conveyor_Bottle14_Position);
+			Bottler_Conveyor_Bottle15_Position = ProdLine_Line1Position(hBusy,15,Bottler_Conveyor_Bottle15_Position);
+			Bottler_Conveyor_Bottle16_Position = ProdLine_Line1Position(hBusy,16,Bottler_Conveyor_Bottle16_Position);
+		END
+	
+		// Put some rules around the range of line speed
+		IF Bottler_Conveyor_Speed > 0 AND Bottler_Conveyor_Speed  <= 20 THEN
+			SleepMS(Max(0,(500 / Bottler_Conveyor_Speed)-SysTimeDelta(TimeDelta)));
+		ELSE
+			SleepMS(miDefaultLineSpeed);
+		END
+	END	
+	IsError();
+	ErrSet(0);
+END	
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						ProdLine_SimulateFiller1()
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Starts the ProdLine Filler simulation. This is 
+//			started as a task once per Citect runtime. The filler
+//			basically waits until all its positions have a bottle
+//			in place and then if fills them.
+//				
+// 		ARGUMENTS:
+//
+//			None
+//			
+//     	RETURNED VALUE: 
+//
+//			None
+//
+//		PSEUDO CODE:
+//
+//		WHILE 1 DO
+//			IF (All positions have a bottle) THEN
+//				Push Down Fill Nozzle
+//				Increment Fill Level
+//			END
+//
+//			IF (Fill is complete) THEN
+//				Lift Up Fill Nozzle
+//				Change Filled Bottles Status to "Filled" (1)
+//				Reset Fill Position Targets and Ready Flags
+//			END
+//			
+//			Deduct Fill Cost From Tank In Use
+//			IF (Tank In Use Is At Low Level) THEN
+//				Swap Tank in Use Over
+//				Start Fill of Empty Tank
+//			END
+//		END
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+FUNCTION ProdLine_SimulateFiller1();
+	INT TimeDelta;
+	SleepMS(1000);
+
+	ErrSet(1);
+	WHILE (1) DO
+		TimeDelta = SysTime();	
+		IF Bottler_Filler1_Ready AND Bottler_Filler2_Ready AND Bottler_Filler3_Ready AND Bottler_Filler4_Ready AND Bottler_Filler5_Ready AND (Bottler_Tank1_Level > miTankFillLevel OR Bottler_Tank2_Level > miTankFillLevel) THEN
+			Bottler_Filler_Nozzle = 1;
+			IF Bottler_Tank1_InUse = 1 THEN
+				Bottler_Tank1_OutletValve = 1;	
+				Bottler_Batch_ID = Bottler_Tank1_BatchID;
+			END
+			IF Bottler_Tank2_InUse = 1 THEN
+				Bottler_Tank2_OutletValve = 1;	
+				Bottler_Batch_ID = Bottler_Tank2_BatchID;
+			END
+			Bottler_Filler_ON =1;
+			Bottler_Filler_Level = Bottler_Filler_Level + Bottler_Filler_Rate;
+		END
+		IF Bottler_Filler_Level >= 100 THEN
+			Bottler_Filler_Nozzle = 0;
+			Bottler_Filler_ON = 0;
+
+			EnterCriticalSection("FillTarget");
+			TagWrite("Bottler_Conveyor_Bottle"+IntToStr(Bottler_Filler1_Target)+"_Status","1",0);
+			TagWrite("Bottler_Conveyor_Bottle"+IntToStr(Bottler_Filler2_Target)+"_Status","1",0);
+			TagWrite("Bottler_Conveyor_Bottle"+IntToStr(Bottler_Filler3_Target)+"_Status","1",0);
+			TagWrite("Bottler_Conveyor_Bottle"+IntToStr(Bottler_Filler4_Target)+"_Status","1",0);
+			TagWrite("Bottler_Conveyor_Bottle"+IntToStr(Bottler_Filler5_Target)+"_Status","1",0);
+			Bottler_Filler1_Target = 0;
+			Bottler_Filler2_Target = 0;
+			Bottler_Filler3_Target = 0;
+			Bottler_Filler4_Target = 0;
+			Bottler_Filler5_Target = 0;
+			Bottler_Filler1_Ready = 0;
+			Bottler_Filler2_Ready = 0;
+			Bottler_Filler3_Ready = 0;
+			Bottler_Filler4_Ready = 0;
+			Bottler_Filler5_Ready = 0;
+			Bottler_Filler_Level = 0;
+			LeaveCriticalSection("FillTarget");
+			
+			IF Bottler_Tank1_InUse = 1 THEN
+				Bottler_Tank1_Level = Bottler_Tank1_Level - miFillCost;
+				IF Bottler_Tank1_Level <= miTankFillLevel AND Bottler_Tank1_Level THEN
+					Bottler_Tank1_InUse = 0
+					Bottler_Tank2_InUse = 1;
+					Bottler_Tank2_OutletValve = 1;	
+					IF NOT Bottler_Tank1_Filling THEN
+						Bottler_Tank1_BatchID = "";
+						Bottler_Batch_ID = "";
+						TaskNew("ProdLine_SimulateTankFill", "1", 0);
+					END
+				END			
+			ELSE
+				Bottler_Tank2_Level = Bottler_Tank2_Level - miFillCost;
+				IF Bottler_Tank2_Level <= miTankFillLevel AND Bottler_Tank2_Level THEN
+					Bottler_Tank2_InUse = 0
+					Bottler_Tank1_InUse = 1;
+					Bottler_Tank1_OutletValve = 1;	
+					IF NOT Bottler_Tank2_Filling THEN
+						Bottler_Tank2_BatchID = "";
+						Bottler_Batch_ID = "";
+						TaskNew("ProdLine_SimulateTankFill", "2", 0);
+					END
+				END
+			END							
+		END
+
+		IF (Bottler_Filler_Speed > 0) THEN
+			SleepMS(Max(0,Bottler_Filler_Speed-SysTimeDelta(TimeDelta)));
+		ELSE
+			SleepMS(miDefaultFillSpeed);
+		END
+	END
+	IsError();
+	ErrSet(0);
+END
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						ProdLine_SimulateCapper1()
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Starts the ProdLine Capper simulation. This is 
+//			started as a task once per Citect runtime. The capper
+//			basically waits until its 2 positions have a bottle
+//			in place and then if caps them.
+//				
+// 		ARGUMENTS:
+//
+//			None
+//			
+//     	RETURNED VALUE: 
+//
+//			None
+//
+//		PSEUDO CODE:
+//
+//		WHILE 1 DO
+//			IF (Both Cap Positions Have Bottle) AND (Not Currently Capping) AND
+//					(NOT Complete Current Capping) AND (There are enough Caps Left) THEN
+//				Start Capping
+//				Set Capping Direction Down
+//			END
+//
+//			Move Capper (depending on current direction)
+//
+//			IF (Capping is complete) THEN
+//				Change Capped Bottles Status to "Capped" (2)
+//				Change Capping Direction to Up
+//			END
+//			
+//			IF (Capping direction is up) AND (Capper arm is parked) THEN
+//				Set capping as complete
+//			END
+//
+//			IF (Capping is Complete) AND (No Bottles are in the Labeller) THEN
+//				Reset Capping Status
+//				Set Current Bottles as Labeller Targets
+//				Deduct Cap Cost from Stock
+//				Fill Capper if Necessary
+//			END
+//		END
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+FUNCTION ProdLine_SimulateCapper1();
+	INT TimeDelta;
+	SleepMS(1000);
+	
+	ErrSet(1);
+	WHILE (1) DO
+		TimeDelta = SysTime();	
+
+		// If capping process can be started, then start it
+		IF Bottler_Cap1_Ready AND Bottler_Cap2_Ready AND Bottler_Cap_Direction = 0 AND NOT Bottler_Cap_Complete AND Bottler_Cap_Stock >= miCapCost THEN
+			Bottler_Cap_Direction = 1;
+			Bottler_Cap_ON = 1;
+			Bottler_Cap_W = DeviceScaler(Bottler_Cap_ON,Bottler_Cap_ON.vt,0,1)*3000;
+			CalcValues("Bottler_Cap");
+		END
+		
+		// Move the capper arm in the current direction
+		IF Bottler_Cap1_Ready AND Bottler_Cap2_Ready THEN
+			Bottler_Cap_Level = Bottler_Cap_Level + Bottler_Cap_Direction;
+			Bottler_Cap_W = DeviceScaler(Bottler_Cap_ON,Bottler_Cap_ON.vt,0,1)*3000;
+			CalcValues("Bottler_Cap");
+		END
+		// If the capper is right down, mark the bottles as capped
+		// and change the direction of the capper to UP
+		IF Bottler_Cap_Level >= 10 THEN
+			TagWrite("Bottler_Conveyor_Bottle"+ IntToStr(Bottler_Cap1_Target) +"_Status","2",0);
+			TagWrite("Bottler_Conveyor_Bottle"+ IntToStr(Bottler_Cap2_Target) +"_Status","2",0);
+			Bottler_Cap_Direction = -1;
+		END
+		
+		// If the capper has returned to the top, then capping is complete
+		IF Bottler_Cap_Direction = -1 AND Bottler_Cap_Level <= 0 THEN
+			Bottler_Cap_Direction = 0;
+			Bottler_Cap_Complete = 1;
+			Bottler_Cap_ON = 0;
+			Bottler_Cap_W = 0;
+
+		END
+		
+		// If capping is complete and there are no bottles at the labeller
+		IF Bottler_Cap_Complete AND Bottler_Label1_Target = 0 AND Bottler_Label2_Target = 0 THEN
+
+			// Set Labeller targets to capped bottles
+			EnterCriticalSection("LabelTarget");
+			Bottler_Label1_Target = Bottler_Cap1_Target;
+			Bottler_Label2_Target = Bottler_Cap2_Target;
+			LeaveCriticalSection("LabelTarget");
+			
+			// Reset Capper status
+			EnterCriticalSection("CapTarget");
+			Bottler_Cap1_Target = 0;
+			Bottler_Cap2_Target = 0;
+			Bottler_Cap1_Ready=0;
+			Bottler_Cap2_Ready=0;
+			Bottler_Cap_Complete = 0;
+			LeaveCriticalSection("CapTarget");
+
+			EnterCriticalSection("CapFill");	
+			// Manage capper stock of caps
+			Bottler_Cap_Stock = Bottler_Cap_Stock - miCapCost;
+			LeaveCriticalSection("CapFill");
+			IF Bottler_Cap_Stock <= miCapFillLevel THEN
+				TaskNew("ProdLine_SimulateCapFill", "", 8);
+			END
+		END
+
+		IF (Bottler_Cap_Speed > 0) THEN
+			SleepMS(Max(0,Bottler_Cap_Speed-SysTimeDelta(TimeDelta)));
+		ELSE
+			SleepMS(miDefaultCapSpeed);
+		END
+	END
+	IsError();
+	ErrSet(0);
+END
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						ProdLine_SimulateLabeler1()
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Starts the ProdLine Labeler simulation. This is 
+//			started as a task once per Citect runtime. The labeller
+//			basically waits until its 2 positions have a bottle
+//			in place and then if labels them.
+//				
+// 		ARGUMENTS:
+//
+//			None
+//			
+//     	RETURNED VALUE: 
+//
+//			None
+//
+//		PSEUDO CODE:
+//
+//		WHILE 1 DO
+//			IF (Both Label Positions Have Bottle) AND (Not Currently Labelling) THEN
+//				Set Labelling Direction Down
+//			END
+//
+//			Move Labeller (depending on current direction)
+//
+//			IF (Labeller is all the way down) THEN
+//				Change Labelled Bottles Status to "Labelled" (3)
+//				Change Labeller Direction to Up
+//			END
+//			
+//			IF (Labeller direction is up) AND (Labeller arm is parked) THEN
+//				Reset Labelling Status
+//			END
+//		END
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+FUNCTION ProdLine_SimulateLabeler1()
+	INT TimeDelta;
+	SleepMS(1000);
+	ErrSet(1);
+
+	WHILE (1) DO
+		TimeDelta = SysTime();	
+		// If there are bottles in the labeller and we are not currently labelling
+		// then start the process
+		IF Bottler_Label1_Ready AND Bottler_Label2_Ready AND Bottler_Label_Direction = 0 THEN
+			Bottler_Label_Direction = 2;
+			Bottler_Label_ON = 1;
+		END
+		// Change the labeller position according to direction
+		IF Bottler_Label1_Ready AND Bottler_Label2_Ready THEN
+			Bottler_Label_Level = Bottler_Label_Level + Bottler_Label_Direction;
+			Bottler_Label_W = DeviceScaler(Bottler_Label_ON,Bottler_Label_ON.vt,0,1)*4500;
+			CalcValues("Bottler_Label");
+		END	
+		// If labeller is all the way down, then change the bottle status
+		// to Labelled (3) and change the labeller direction to up
+		IF Bottler_Label_Level >= 40 THEN
+			TagWrite("Bottler_Conveyor_Bottle"+IntToStr(Bottler_Label1_Target)+"_Status","3",0);
+			TagWrite("Bottler_Conveyor_Bottle"+IntToStr(Bottler_Label2_Target)+"_Status","3",0);
+			Bottler_Label_Direction = -5;	
+		END
+		
+		// If Labeller has returned to the top, then the process is done
+		IF Bottler_Label_Level <= 0 AND Bottler_Label_Direction < 0 THEN
+			Bottler_Label_ON = 0;
+			// Clear the labeller status
+			Bottler_Label1_Ready=0;
+			Bottler_Label2_Ready=0;
+			Bottler_Label_Direction = 0;
+			EnterCriticalSection("LabelTarget");
+			Bottler_Label1_Target = 0;
+			Bottler_Label2_Target = 0;
+			LeaveCriticalSection("LabelTarget");
+			Bottler_Label_W = 0;
+		END
+
+		IF (Bottler_Label_Speed > 0) THEN
+			SleepMS(Max(0,Bottler_Label_Speed-SysTimeDelta(TimeDelta)));
+		ELSE
+			SleepMS(miDefaultLabelSpeed);
+		END
+	END
+	ErrSet(0);
+END
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						ProdLine_Line1Position()
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Based on a specific bottles current position, calculates
+//			the next position that bottle should move to.
+//				
+// 		ARGUMENTS:
+//
+//			hBusy 	- handle to the "busy" group which shows all occupied positions
+//			nBottle - number of the bottle to be moved
+//			nPosition - current bottle position
+//			
+//     	RETURNED VALUE: 
+//
+//			Int - the new bottle position 
+//
+//		PSEUDO CODE:
+//
+//		IF (Current Position + 2) IS Busy THEN
+//			RETURN Current Position
+//		END
+//
+//		IF (Current Position + 2) IS Fill Target position (180) THEN
+//			Set this bottle as target for next available fill slot
+//			IF ( no fill slots available) THEN
+//				RETURN Current Position
+//			END
+//		ELSE IF (Current Position + 2) IS one of the filling slots THEN
+//			Set that fill slot to ready
+//			RETURN Current Position
+//		ELSE IF (Current Position + 2) IS Capper target position
+//			Set this bottle as target for next available capper slot
+//			IF ( no capper slots available) THEN
+//				RETURN Current Position
+//		ELSE IF (Current Position + 2) IS one of the capper slots THEN
+//			Set that capper slot to ready
+//			RETURN Current Position
+//		ELSE IF (Current Position + 2) IS one of the Labeller slots THEN
+//			Set that Labeller slot to ready
+//			RETURN Current Position
+//		ELSE IF (Current Position + 2) IS End of The Line THEN
+//			Reset the bottle status
+//			RETURN 0
+//		
+//		Increment Position
+//		Maintain busy positions
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+INT
+FUNCTION ProdLine_Line1Position(INT hBusy, INT nBottle, INT nPosition)
+	IF GrpIn(hBusy, nPosition+2) THEN
+		// Cannot move to next position, is already occupied
+		RETURN nPosition;
+	END
+	
+	SELECT CASE (nPosition+2)
+	
+	// Filling target hot point. This is where bottles are allocated to
+	// a filling position and if there are none available they will line up.
+	CASE 180 
+		EnterCriticalSection("FillTarget");
+		IF Bottler_Filler1_Target THEN
+			IF Bottler_Filler2_Target THEN
+				IF Bottler_Filler3_Target THEN
+					IF Bottler_Filler4_Target THEN
+						IF Bottler_Filler5_Target THEN
+							LeaveCriticalSection("FillTarget");
+							RETURN nPosition;
+						ELSE
+							Bottler_Filler5_Target = nBottle;
+						END
+					ELSE
+						Bottler_Filler4_Target = nBottle;
+					END
+				ELSE
+					Bottler_Filler3_Target = nBottle;
+				END
+			ELSE
+				Bottler_Filler2_Target = nBottle;
+			END
+		ELSE
+			Bottler_Filler1_Target = nBottle;
+		END
+		LeaveCriticalSection("FillTarget");		
+	
+	// Filling positions (5-4-3-2-1)
+	CASE 242 
+		IF nBottle = Bottler_Filler5_Target THEN
+			Bottler_Filler5_Ready = 1
+			RETURN nPosition;
+		END
+	CASE 276 
+		IF nBottle = Bottler_Filler4_Target THEN
+			Bottler_Filler4_Ready = 1
+			RETURN nPosition;
+		END
+	CASE 310 
+		IF nBottle = Bottler_Filler3_Target THEN
+			Bottler_Filler3_Ready = 1
+			RETURN nPosition;
+		END
+	CASE 344 
+		IF nBottle = Bottler_Filler2_Target THEN
+			Bottler_Filler2_Ready = 1
+			RETURN nPosition;
+		END
+	CASE 378 
+		IF nBottle = Bottler_Filler1_Target THEN
+			Bottler_Filler1_Ready = 1
+			RETURN nPosition;
+		END
+		
+	// Capper target hot point. This is where bottles are allocated to
+	// a capping position and if there are none available they will line up.
+	CASE 580 
+		EnterCriticalSection("CapTarget");
+		IF Bottler_Cap1_Target THEN
+			IF Bottler_Cap2_Target THEN
+				LeaveCriticalSection("CapTarget");
+				RETURN nPosition;
+			ELSE
+				Bottler_Cap2_Target = nBottle;
+			END
+		ELSE
+			Bottler_Cap1_Target = nBottle;
+		END
+		LeaveCriticalSection("CapTarget");
+
+	// Capping Positions
+	CASE 662 
+		IF nBottle = Bottler_Cap2_Target THEN
+			Bottler_Cap2_Ready = 1
+			RETURN nPosition;
+		END
+	CASE 702 
+		IF nBottle = Bottler_Cap1_Target THEN
+			Bottler_Cap1_Ready = 1
+			RETURN nPosition;
+		END
+	
+	// Labelling Positions
+	CASE 796 
+		IF nBottle = Bottler_Label2_Target THEN
+			Bottler_Label2_Ready = 1
+			RETURN nPosition;
+		END
+	CASE 832 
+		IF nBottle = Bottler_Label1_Target THEN
+			Bottler_Label1_Ready = 1
+			RETURN nPosition;
+		END
+		
+	// End of the line, bottles are reset and sent back to the start
+	CASE 1070
+		TagWrite("Bottler_Conveyor_Bottle"+IntToStr(nBottle)+"_Status","0",0);
+		TagWrite("Bottler_Production", Bottler_Production + 1);
+		IF TagRead("Bottler_Production") = TagGetProperty("Bottler_Production", "EngUnitsHigh", 0) THEN
+			TagWrite("Bottler_Production", 0);
+		END
+		RETURN 0;
+	END SELECT
+
+	// Increment the position. If new position is still on the page,
+	// set it to busy and if the whole bottle is on the page (they
+	// are 32 pixels wide), then set the position just before the bottle
+	// to free by deleting is from the busy group.
+	nPosition = nPosition+2;
+
+	IF nPosition < 1024 THEN
+		GrpInsert(hBusy, nPosition);
+	END
+	IF nPosition > 30 THEN
+		GrpDelete(hBusy, nPosition-32);
+	END
+	
+	RETURN nPosition
+END
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						ProdLine_SimulateTankFill()
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Simulates tank cleaning and filling.
+//				
+// 		ARGUMENTS:
+//
+//			sTankToFill	- Name of the tank to fill
+//			
+//     	RETURNED VALUE: 
+//
+//			None
+//
+//		PSEUDO CODE:
+//
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+FUNCTION ProdLine_SimulateTankFill(STRING sTankToFill)
+	
+	ErrSet(1);
+
+	TagWrite("Bottler_Tank"+sTankToFill+"_Agitator_ON", 0);
+	// 15 seconds for the cleaning process
+	TagWrite("Bottler_Tank"+sTankToFill+"_Cleaning", 1);
+	TagWrite("Bottler_Tank"+sTankToFill+"_CleaningValve", 1);
+	SleepMS(15000);
+	TagWrite("Bottler_Tank"+sTankToFill+"_Cleaning", 0);
+	TagWrite("Bottler_Tank"+sTankToFill+"_CleaningValve", 0);
+	TagWrite("Bottler_Tank"+sTankToFill+"_OutletValve", 0);
+	TagWrite("Bottler_Tank"+sTankToFill+"_Level", 0);
+
+	ErrSet(0);
+END
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						ProdLine_SimulateCapFill()
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Simulates filling of the capper caps.
+//				
+// 		ARGUMENTS:
+//
+//			None
+//			
+//     	RETURNED VALUE: 
+//
+//			None
+//
+//		PSEUDO CODE:
+//
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+FUNCTION ProdLine_SimulateCapFill()
+	ErrSet(1);
+	
+	// Bring the box out along the conveyor (10 seconds)
+	WHILE Bottler_CapConveyor < 100 DO
+		Bottler_CapConveyor_ON = 1;
+		Bottler_CapConveyor = Bottler_CapConveyor + 1;
+		SleepMS(100);
+	END
+	
+	// Pause as the box is tipped in and set the 
+	// capper to full half way through the pause
+	EnterCriticalSection("CapFill");
+	SleepMS(500);
+	TagWrite("Bottler_Cap_Stock", 100);
+	SleepMS(500);
+	TagWrite("Bottler_CapConveyor", 0);
+	LeaveCriticalSection("CapFill");
+	Bottler_CapConveyor_ON = 0;
+	ErrSet(0);
+END
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						ProdLine_GetCapperStatus()
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Returns the current capper status.
+//				
+// 		ARGUMENTS:
+//
+//			None
+//			
+//     	RETURNED VALUE: 
+//
+//			Capper Status :	(0) - Capper has no targets or bottles ready
+//							(1) - Capper has target bottle which havent arrived
+//							(2) - Capper has bottles ready to be capped or being capped
+//
+//		PSEUDO CODE:
+//
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+INT
+FUNCTION ProdLine_GetCapperStatus()
+
+	IF Bottler_Cap1_Target AND Bottler_Cap2_Target THEN
+		IF Bottler_Cap1_Ready AND Bottler_Cap2_Ready THEN
+			RETURN 2;
+		ELSE
+			RETURN 1;
+		END
+	END
+	
+	RETURN 0;
+END
+
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						ProdLine_GetLabelerStatus()
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Gets the current Labeler Status.
+//				
+// 		ARGUMENTS:
+//
+//			None
+//			
+//     	RETURNED VALUE: 
+//
+//			Capper Status :	(0) - Labeler has no targets or bottles ready
+//							(1) - Labeler has target bottle which havent arrived
+//							(2) - Labeler has bottles ready to be labelled or being labelled
+//
+//		PSEUDO CODE:
+//
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+INT 
+FUNCTION ProdLine_GetLabelerStatus()
+
+	IF Bottler_Label1_Target AND Bottler_Label2_Target THEN
+		IF Bottler_Label1_Ready AND Bottler_Label2_Ready THEN
+			RETURN 2;
+		ELSE
+			RETURN 1;
+		END
+	END
+
+	RETURN 0;
+END
+
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+//
+//		FUNCTION NAME	
+//						MouseDown Functions
+//
+//		REV	DATE		WHO			DESCRIPTION
+//		0	
+//
+//     	GENERAL DESCRIPTION
+//
+//			Series of functions to react to mouse down event, determine if the mouse is down
+//			and return ask if the mouse down is over a particular aN number.
+//				
+//
+/////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+FUNCTION DspRegisterMouseDown()
+	fhHandlerChain = GetEvent(1);
+	OnEvent(1,DspIsMouseDown); 
+END
+
+INT
+FUNCTION DspIsMouseDown()
+
+	INT nKey;
+	nKey = KeyPeek(0);
+	
+	IF nKey = KEY_LBUTTON_DN THEN
+		fnButtonDown = KeyGetCursor();
+	ELSE
+		fnButtonDown = 0;
+	END
+	
+	INT nChainReturn;
+	IF fhHandlerChain <> -1 THEN
+		nChainReturn = ChainEvent(fhHandlerChain);	
+	END
+	RETURN nChainReturn;
+END
+
+INT
+FUNCTION DspGetMouseDown(INT hAN=0)
+	IF hAN = 0 THEN 
+		hAN = DspGetAnCur();
+	END
+	RETURN (hAN = fnButtonDown)
+END
