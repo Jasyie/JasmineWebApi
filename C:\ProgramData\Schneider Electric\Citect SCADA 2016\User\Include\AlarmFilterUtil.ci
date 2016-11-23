@@ -1,0 +1,508 @@
+//-------------------------------------------------------------------------------------
+//	Copyright © 2015 Schneider Electric (Australia) Pty Ltd. All rights reserved.
+//
+// 	FILE:		AlarmFilterUtil.ci
+//
+//	CREATED:	26/03/2012
+//
+//	SUMMARY:
+//
+//		Contains utility functions for alarm filtering.
+//
+//	PUBLIC FUNCTIONS:
+//
+//		AlarmFilterCopy
+//		AlarmFilterAppend
+//		AlarmFilterMerge
+//		AlarmFilterSubtract
+//		AlarmFilterReset
+//		AlarmFilterAreEqual
+//		AlarmFilterEditAppendGrp
+//
+//-----------------------------------------------------------------------------
+
+
+//-----------------------------------------------------------------------------
+//
+//	Constants
+//
+//-----------------------------------------------------------------------------
+
+INT		c_ALARMFILTER_ITEM_MAXCHARS		= 254;
+STRING	c_ALARMFILTER_ITEM_SEPARATOR	= ";";
+
+
+//-----------------------------------------------------------------------------
+//
+//	Public Functions
+//
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		AlarmFilterCopy
+//
+//	SUMMARY:
+//		Copies the content of an alarm filter to another one.
+//
+//	PARAMS:
+//		destFilterName		- The name of the destination filter being overwritten
+//		srcFilterName		- The name of the source filter
+//
+//	RETURNS:
+//		0 if successful or error code if not
+//
+//-----------------------------------------------------------------------------
+
+INT FUNCTION AlarmFilterCopy(STRING destFilterName, STRING srcFilterName)
+	INT destSession;
+	INT error;
+
+	IsError();
+	destSession = AlarmFilterEditOpen(destFilterName);
+	IF (destSession > -1) THEN
+		AlarmFilterEditSet(destSession, "");
+		IF (0 = _AlarmFilterEditAppendFilter(destSession, srcFilterName)) THEN
+			AlarmFilterEditCommit(destSession);
+		END
+		AlarmFilterEditClose(destSession);
+	END
+
+	// get error number while preserving the error status
+	error = IsError();
+	IF (0 <> error) THEN
+		ErrTrap(error, FALSE);
+	END
+	RETURN error;
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		AlarmFilterAppend
+//
+//	SUMMARY:
+//		Appends the content of an alarm filter to another one.
+//
+//	PARAMS:
+//		destFilterName		- The name of the destination filter being appended to
+//		srcFilterName		- The name of the source filter
+//
+//	RETURNS:
+//		0 if successful or error code if not
+//
+//-----------------------------------------------------------------------------
+
+INT FUNCTION AlarmFilterAppend(STRING destFilterName, STRING srcFilterName)
+	INT destSession;
+	INT addSeparator;
+	INT error;
+
+	IsError();
+	destSession = AlarmFilterEditOpen(destFilterName);
+	IF (destSession > -1) THEN
+		addSeparator = (AlarmFilterEditFirst(destSession) <> "");
+		IF (0 = _AlarmFilterEditAppendFilter(destSession, srcFilterName, addSeparator)) THEN
+			AlarmFilterEditCommit(destSession);
+		END
+		AlarmFilterEditClose(destSession);
+	END
+
+	// get error number while preserving the error status
+	error = IsError();
+	IF (0 <> error) THEN
+		ErrTrap(error, FALSE);
+	END
+	RETURN error;
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		AlarmFilterMerge
+//
+//	SUMMARY:
+//		Merges the content of an alarm filter with another one.
+//			
+//	PARAMS:
+//		destFilterName		- The name of the destination filter being merged to
+//		srcFilterName		- The name of the source filter
+//
+//	RETURNS:
+//		0 if successful or error code if not
+//
+//-----------------------------------------------------------------------------
+
+INT FUNCTION AlarmFilterMerge(STRING destFilterName, STRING srcFilterName)
+	INT destSession;
+	INT srcSession;
+	STRING filterItem;
+	INT addSeparator;
+	INT error;
+
+	IsError();
+	destSession = AlarmFilterEditOpen(destFilterName);
+	IF (destSession > -1) THEN
+		srcSession = AlarmFilterEditOpen(srcFilterName);
+		IF (srcSession > -1) THEN
+			addSeparator = (AlarmFilterEditFirst(destSession) <> "");
+			filterItem = AlarmFilterEditFirst(srcSession);
+			WHILE ("" <> filterItem) DO
+				IF (NOT _AlarmFilterEditIn(destSession, filterItem)) THEN
+					addSeparator = _AlarmFilterEditAppendItem(destSession, filterItem, addSeparator);
+				END
+				filterItem = AlarmFilterEditNext(srcSession);
+			END
+			AlarmFilterEditClose(srcSession);
+			AlarmFilterEditCommit(destSession);
+		END
+		AlarmFilterEditClose(destSession);
+	END
+
+	// get error number while preserving the error status
+	error = IsError();
+	IF (0 <> error) THEN
+		ErrTrap(error, FALSE);
+	END
+	RETURN error;
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		AlarmFilterSubtract
+//
+//	SUMMARY:
+//		Subtracts (removes) the content of an alarm filter that are also found
+//		in another alarm filter.
+//
+//	PARAMS:
+//		destFilterName		- The name of the destination filter being subtracted
+//		subtractFilterName	- The name of the filter that specifies the content
+//								to be subtracted
+//
+//	RETURNS:
+//		0 if successful or error code if not
+//
+//-----------------------------------------------------------------------------
+
+INT FUNCTION AlarmFilterSubtract(STRING destFilterName, STRING subtractFilterName)
+	INT destSession;
+	INT srcSession;
+	INT subtractSession = -1;
+	STRING filterItem;
+	INT addSeparator = FALSE;
+	INT error;
+
+	IsError();
+	destSession = AlarmFilterEditOpen(destFilterName);
+	IF (destSession > -1) THEN
+		srcSession = AlarmFilterEditOpen(destFilterName);
+		IF (srcSession > -1) THEN
+			subtractSession = AlarmFilterEditOpen(subtractFilterName);
+			IF (subtractSession > -1) THEN
+				AlarmFilterEditSet(destSession, "");
+				filterItem = AlarmFilterEditFirst(srcSession);
+				WHILE ("" <> filterItem) DO
+					IF (NOT _AlarmFilterEditIn(subtractSession, filterItem)) THEN
+						addSeparator = _AlarmFilterEditAppendItem(destSession, filterItem, addSeparator);
+					END
+					filterItem = AlarmFilterEditNext(srcSession);
+				END
+				AlarmFilterEditClose(subtractSession);
+				AlarmFilterEditCommit(destSession);
+			END
+			AlarmFilterEditClose(srcSession);
+		END
+		AlarmFilterEditClose(destSession);
+	END
+
+	// get error number while preserving the error status
+	error = IsError();
+	IF (0 <> error) THEN
+		ErrTrap(error, FALSE);
+	END
+	RETURN error;
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		AlarmFilterReset
+//
+//	SUMMARY:
+//		Resets the content of an alarm filter.
+//			
+//	PARAMS:
+//		filterName		- The name of the filter being reset
+//			
+//	RETURNS:
+//		0 if successful or error code if not
+//
+//-----------------------------------------------------------------------------
+
+INT FUNCTION AlarmFilterReset(STRING filterName)
+	INT destSession;
+	INT error;
+
+	IsError();
+	destSession = AlarmFilterEditOpen(filterName);
+	IF (destSession > -1) THEN
+		AlarmFilterEditSet(destSession, "");
+		AlarmFilterEditCommit(destSession);
+		AlarmFilterEditClose(destSession);
+	END
+
+	// get error number while preserving the error status
+	error = IsError();
+	IF (0 <> error) THEN
+		ErrTrap(error, FALSE);
+	END
+	RETURN error;
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		AlarmFilterAreEqual
+//
+//	SUMMARY:
+//		Compares the filter string of two filters to check they are equal
+//
+//	PARAMS:
+//		filterName1		- The name of 1st filter
+//		filterName2		- The name of 2nd filter
+//			
+//	RETURNS:
+//		TRUE if contents of two filters are equal else FALSE
+//
+//-----------------------------------------------------------------------------
+
+INT FUNCTION AlarmFilterAreEqual(STRING filterName1, STRING filterName2)
+	IF (filterName1 = filterName2) THEN
+		RETURN TRUE;
+	END
+
+	INT matched = FALSE;
+	INT session1 = AlarmFilterEditOpen(filterName1);
+	INT session2 = AlarmFilterEditOpen(filterName2);
+	STRING item1, item2;
+
+	IF (-1 = session1) THEN
+		IF (-1 = session2) THEN
+			matched = TRUE;
+		ELSE
+			AlarmFilterEditClose(session2);
+		END
+	ELSE
+		IF (-1 <> session2) THEN
+			item1 = AlarmFilterEditFirst(session1);
+			item2 = AlarmFilterEditFirst(session2);
+			WHILE ("" <> item1 AND item1 = item2) DO
+				item1 = AlarmFilterEditNext(session1);
+				item2 = AlarmFilterEditNext(session2);
+			END
+			IF ("" = item2 AND "" = item1) THEN
+				matched = TRUE;
+			END
+			AlarmFilterEditClose(session2);
+		END
+		AlarmFilterEditClose(session1);
+	END
+
+	RETURN matched;
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		AlarmFilterEditAppendGrp
+//
+//	SUMMARY:
+//		Appends group (or value) of categor(ies), group(s) or area(s), etc.
+//		to the specified alarm filter edit session.
+//			
+//	PARAMS:
+//		session			- The opened filter edit session
+//		grpHnd			- group handle to categories, priorities or areas, etc.
+//							or individual value of them
+//		filterField		- filer field that the group handle represents,
+//							if not specified, default is Category
+//			
+//	RETURNS: 
+//		0 if filter criteria is appended successfully or error code
+//
+//-----------------------------------------------------------------------------
+
+INT FUNCTION AlarmFilterEditAppendGrp(INT session, INT grpHnd, STRING filterField = "Category")
+	INT value, valueMax;
+	INT error = 0;
+
+	// determine max. value allowed to represent individual value
+	IF ("Category" = filterField) THEN
+		valueMax = 16375;
+	ELSE
+		valueMax = 255;
+	END
+
+	// open filter edit session
+	IF (-1 = session) THEN
+		RETURN 274;		// invalid argument
+	END
+
+	// Check cateory / priority is specific value or group handle
+	SELECT CASE grpHnd
+	CASE 0
+		// no filter is set, do nothing
+		;
+	CASE 1 TO valueMax
+		// a particular category / priority / area, etc. is set
+		error = AlarmFilterEditAppend(session, filterField + "=" + IntToStr(grpHnd) + ";");
+	CASE ELSE
+		IsError();
+		IF ("" <> GrpName(grpHnd)) THEN
+			value = GrpFirst(grpHnd);
+			IF (-1 <> value) THEN
+				AlarmFilterEditAppend(session, filterField + "=" + IntToStr(value));
+				value = GrpNext(grpHnd, value);
+				WHILE (-1 <> value) DO
+					AlarmFilterEditAppend(session, " or " + filterField + "=" + IntToStr(value));
+					value = GrpNext(grpHnd, value);
+				END
+				AlarmFilterEditAppend(session, ";");
+			END
+		END
+		error = IsError();
+		IF (0 <> error) THEN
+			ErrTrap(error, FALSE);
+		END
+	END SELECT
+
+	RETURN error;
+END
+
+
+//-----------------------------------------------------------------------------
+//
+//	Private Helper Functions
+//
+//-----------------------------------------------------------------------------
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		_AlarmFilterEditAppendFilter
+//
+//	SUMMARY:
+//		Appends the full content of an alarm filter to an opened alarm filter
+//		edit session.
+//			
+//	PARAMS:
+//		destSession		- The destination alarm filter edit session
+//		filterName		- The name of the filter being appended
+//		addSeparator	- Whether to add separator at the beginning
+//			
+//	RETURNS:
+//		0 if successful or error code if not
+//
+//-----------------------------------------------------------------------------
+
+PRIVATE
+INT FUNCTION _AlarmFilterEditAppendFilter(INT destSession, STRING filterName, INT addSeparator = FALSE)
+	INT srcSession;
+	STRING filterItem;
+	INT error;
+
+	IsError();
+	srcSession = AlarmFilterEditOpen(filterName);
+	IF (srcSession > -1) THEN
+		filterItem = AlarmFilterEditFirst(srcSession);
+		WHILE ("" <> filterItem) DO
+			addSeparator = _AlarmFilterEditAppendItem(destSession, filterItem, addSeparator);
+			filterItem = AlarmFilterEditNext(srcSession);
+		END
+		AlarmFilterEditClose(srcSession);
+	END
+	
+	// get error number while preserving the error status
+	error = IsError();
+	IF (0 <> error) THEN
+		ErrTrap(error, FALSE);
+	END
+	RETURN error;
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		_AlarmFilterEditIn
+//
+//	SUMMARY:
+//		Checks if an alarm filter item (criteria) is in an alarm filter session.
+//		This function only checks for full filter item separated by the ';'
+//		characters. It does not check for partial match.
+//			
+//	PARAMS:
+//		session		- The alarm filter edit session being checked against
+//		filterItem	- The filter item retrieved from a alarm filter edit session
+//			
+//	RETURNS:
+//		1 if filter item is found or 0 if not
+//
+//-----------------------------------------------------------------------------
+
+PRIVATE
+INT FUNCTION _AlarmFilterEditIn(INT session, STRING filterItem)
+	STRING item;
+
+	item = AlarmFilterEditFirst(session);
+	WHILE ("" <> item) DO
+		IF (item = filterItem) THEN
+			RETURN TRUE;
+		END
+		item = AlarmFilterEditNext(session);
+	END
+
+	RETURN FALSE;
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:
+//		_AlarmFilterEditAppendItem
+//
+//	SUMMARY:
+//		Appends a filter item (criteria) retrieved from AlarmFilterEditFirst /
+//		Next / Prev / Last family of Cicode functions to another filter edit
+//		session. It also inserts the query separator (;) character if required.
+//			
+//	PARAMS:
+//		session			- The alarm filter edit session being appended to
+//		filterItem		- The filter item retrieved from an alarm filter edit session
+//		addSeparator	- Whether to add separator at the beginning
+//			
+//	RETURNS:
+//		1 if need to add separator for next item or 0 if not
+//
+//-----------------------------------------------------------------------------
+
+PRIVATE
+INT FUNCTION _AlarmFilterEditAppendItem(INT session, STRING filterItem, INT addSeparator)
+	IF (addSeparator) THEN
+		AlarmFilterEditAppend(session, c_ALARMFILTER_ITEM_SEPARATOR);
+	END
+	AlarmFilterEditAppend(session, filterItem);
+
+	// do not add separator next round if item is truncated or already contains separator
+	// TODO: This does NOT handle item of exactly 254 chars, in that case, we'll miss
+	// the separator. Best option is to get the AlarmFilterEdit... functions to include
+	// the separator as part of the return value.
+	IF (StrLength(filterItem) >= c_ALARMFILTER_ITEM_MAXCHARS) THEN
+		RETURN FALSE;
+	END
+	IF (StrRight(filterItem, 1) = c_ALARMFILTER_ITEM_SEPARATOR) THEN
+		RETURN FALSE;
+	END
+	RETURN TRUE;
+END

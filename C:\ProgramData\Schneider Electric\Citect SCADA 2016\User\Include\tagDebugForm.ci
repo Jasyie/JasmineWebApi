@@ -1,0 +1,1048 @@
+/*
+**	FILE:	tagDebugForm.ci
+**
+**  Ver 1.1   22-Dec-2010   Greg Roberts
+**
+**  This version has extended "TagDebug" window features to assist users.
+**
+*/
+
+/* variables for the TagDebugForm functions */
+
+STRING		sValue;         	! Value read or to write
+STRING		sTag;           	! Variable Tag name
+STRING 		sReadIndicator = "0";
+STRING      sTagPrev = "";
+STRING      sTagQTnfo = "";
+STRING		sTagLeadInfo = "";
+STRING		sTagExtraInfo = "";
+STRING		sTagExtraInfo2 = "";
+STRING		sTagExtraInfo3 = "";
+STRING		sArrayIndex = "0";
+STRING      sArrayIndexPrev = "";
+STRING 		sTagEx = "";
+STRING 		sQuery = "";
+STRING      sQueryPrev = "";
+STRING      sPeriodMS = "1000";	
+STRING      sTagFilterIndicator = "  *  ";
+STRING 		sTagExtension = "";
+STRING      sTagArraySuffix = "";
+STRING 		sTagExtensionPrev = "";
+STRING		sTagDevName = "";
+STRING		sTagDevNetworkNum = "";
+INT			hForm = -1;     	! Form handle
+INT 		hBrowse = -1;
+INT    		hFieldError = -1;
+INT   		hFieldReadPer = -1;
+INT 		hFieldRead = -1;
+INT        	hFieldWrite = -1;
+INT			hFieldTagQT = -1;
+INT			hFieldTagLeadin = -1;
+INT			hFieldTagInfo = -1;
+INT			hFieldTagInfo2 = -1;
+INT         hFieldTagUnitStatus = -1;
+INT			hFieldArray = -1;
+INT			hFieldArraySize = -1;
+INT         hFieldStop = -1;
+INT			hFieldFilter = -1;
+INT			hFieldLastTime = -1;
+INT			hFieldValue = -1;
+INT         hTaskHandle = -1;
+INT         hCombo = -1;
+INT         nPeriodicRead = 0;
+INT         nElements = 0;
+INT         nArrayItem = 0;
+INT         nMaxLIst = 500;		! this controls how many tags are in the drop down
+INT			nLastError = 0;
+INT         bTagUpdate = 0;
+INT     	hTagLeadRow;
+INT			hScaleRow;
+INT			hAutoReadRow;
+INT			hDeviceRow;
+INT  		hBaseTagFieldRow;
+INT    		hTagExtension;
+STRING		sTagExtArray[6] = ".Field",".Valid",".Override",".OverrideMode",".ControlMode",".Status";
+
+// 
+//   This controls the width of the form
+INT			nTagWidth = 104;
+
+/*
+**
+**      TagDebugForm()
+**
+**      Builds a form to provide simple user access to the all
+**      Variable Tags during runtime. Reading and writing are
+**      supported.
+**
+**      The Form is always ontop, and only one instance is allowed.
+**
+*/
+
+STRING
+FUNCTION
+TagDebugForm()
+	
+	IF hForm = -1 THEN
+		sTag = "";
+		sValue = "";
+		sTagPrev = "";
+		sTagEx = "";
+		nPeriodicRead = 0;
+		bTagUpdate = 0;
+		hTaskHandle = -1;
+		nElements = 0;
+		nArrayItem = 0;
+		sArrayIndex = "N/A";
+		sArrayIndexPrev = "";
+		sQueryPrev = ".start.";  ! Flag startup case
+		hTagLeadRow = 4;
+		hBaseTagFieldRow = 5;
+		hScaleRow = 6;
+		hAutoReadRow = 7;
+		hDeviceRow = 8;
+				
+		// Form Layout 
+		// 0 |Tag                           | |Read|F|Filter|
+		// 1 |Value               |          |Write||ErrHelp|
+		// 2  Array Index       Time last read	  |TagExHelp|
+		// 3  Tag Type 
+		// 4  Tag intro
+		// 5  Tag Quality & Tag Timestamp  
+		// 6  Scaling Info      
+		// 7 |Device Status|           |Auto read|[x]s |Stop| 
+		// 8 Tag unit status info
+			
+		hForm = FormNew("@(TagDebug - ToolBox)", nTagWidth + 22, hDeviceRow+1, 9);
+
+		hFieldFilter = FormField(nTagWidth - 1, 0, 2, 2, 3, sTagFilterIndicator, "  *  ", 0, 2);
+		FormSetText(hForm, hFieldFilter, sTagFilterIndicator);
+		FormButton(nTagWidth + 1, 0, "  " + "@(Filter)" + "  ", _tagDebugFilter, 0);
+		FormPrompt(0, 0, "Tag:"); 
+		FormPrompt(0, 1, "Value:"); 
+		hCombo = FormComboBox(6 ,0, nTagWidth-34 , 5, sTag, 1);
+		// This has to be here because of the AddList content in the function
+		_tagDebugFillTagListEx("");
+		hTagExtension = FormComboBox(nTagWidth-28, 0, 12, 5, sTagExtension, 1);
+		// This has to be here because of the AddList content in the function
+		_FillTagExtension();
+		hFieldRead = FormButton(nTagWidth - 15, 0, "  " + "@(Read)" + "   ", _tagDebugReadEx, 0);
+				
+		hFieldValue = FormEdit(6, 1, sValue, nTagWidth - 22);
+		hFieldWrite = FormButton(nTagWidth - 15, 1, "  " + "@(Write)" + "  ", _tagDebugWriteEx, 0);
+		// Start of new functionality
+		FormButton(nTagWidth + 1, 1, " " + "@(ErrHelp)" + "  ", _tagHelpEx, 0);
+		FormButton(nTagWidth + 1, 2, "@(TagExtHelp)", _tagExtHelpEx, 0);
+		
+		hFieldArray = FormPrompt(0,3,"Tag Type:        ");
+		FormPrompt(0,2,"Array Index:")				
+		FormEdit(10 ,2, sArrayIndex, 5);
+		hFieldArraySize = FormPrompt(20, 2, "                     ");
+		hFieldLastTime =  FormField( 41, 2, 32, 1, 3, sTagExtraInfo, "  ", 0);
+		
+		hTagLeadRow = FormField( 0, hTagLeadRow, nTagWidth, 1, 3, sTagLeadInfo, "  ", 0);
+	
+		hFieldTagQT = FormField( 0, hBaseTagFieldRow, nTagWidth + 12, 1, 3, sTagQTnfo, "  ", 0);
+		
+		hFieldTagInfo =  FormField( 0, hScaleRow, nTagWidth - 25, 1, 3, sTagExtraInfo, "  ", 0);
+		hFieldTagInfo2 = FormField(nTagWidth - 35, hScaleRow, 16, 1, 3, sTagExtraInfo2, "  ", 0);
+		
+		FormButton(0, hAutoReadRow, " " + "@(Tag's Device Status)" + " ", _tagDebugStatus, 0); 
+		hFieldReadPer = FormButton(nTagWidth - 35, hAutoReadRow, " " + "@(Auto Read)" + " ", _tagStartDebugReadEx, 0);
+		FormEdit(nTagWidth - 10, hAutoReadRow, sPeriodMS, 7);
+		FormPrompt(nTagWidth - 3, hAutoReadRow, "MS");
+		hFieldStop = FormButton(nTagWidth, hAutoReadRow, " " + "@(Stop Read)" + " ", _tagStopDebugReadEx, 0);
+		FormButton(nTagWidth, hAutoReadRow + 1, "   " + "@(Close)" + "   ", 0, 2);
+		
+		hFieldTagUnitStatus = FormField( 0, hDeviceRow, nTagWidth + 1, 1, 3, sTagExtraInfo3, "  ", 0);
+		
+		IF FormActive(hBrowse) THEN
+			// Filter on display from last time, so close
+			FormDestroy(hBrowse);
+			hBrowse = -1;
+		END
+		
+		FormSetData(hForm);
+		
+		sTagPrev = "<not set>";
+				
+		FormRead(0);
+		hForm = -1;
+		RETURN(sTagEx);
+	END
+END
+
+/*  _tagDebugFilterDummy()
+**
+**  This is a dummy function to trap <returns> inside Edit Boxes
+**  Which default to the FIRST button. This then does nothing.
+*/
+
+INT
+FUNCTION
+_tagDebugFilterDummy()
+
+	FormGetData(hForm);
+	RETURN 0;
+
+END
+
+/*  _tagDebugErrorEx()
+**
+**  Handle any returned errors
+*/
+
+FUNCTION
+_tagDebugErrorEx()
+	
+	 nLastError = IsError();
+	 _TagDebugErrorMessage(nLastError);
+END
+
+/*  _tagDebugError()
+**
+**  Display error message
+*/
+FUNCTION
+_TagDebugErrorMessage(INT errCode)
+
+	 IF errCode = 424 THEN
+    	sValue = "^<Error 424: Tag not found^>";
+	 ELSE
+	 	 IF errCode <> 0 THEN
+	 	 	IF errCode < 50 THEN
+	     		sValue = "^<ErrorDriver: " + IntToStr(errCode) + "^>";
+			ELSE
+	 			sValue = "^<Error: " + IntToStr(errCode) + "^>";
+	 	 	END
+	     END
+	 END
+END
+
+/*	_tagHelpEx()
+**
+**  Bring up help preferably at cicode table
+*/
+
+INT
+FUNCTION
+_tagHelpEx()
+	STRING sPath;
+
+	// Open Help at Cicode Error Codes - v6.10 does not have a mapid instance for cicode errors
+	// so not much can be done
+	// http://www.keyworks.net/keyhh.htm is available as a 3rd party product to open a CHM 
+	// at a topic but is non standard
+	// Ideally show "Cicode Programming Reference > Cicode Errors > Cicode and General Errors" directly
+	sPath = ParameterGet("ctedit", "bin", "");
+	IF sPath = "" THEN 
+		Exec("hh CicodeReference.chm", 1);
+	ELSE
+		sPath = "hh mk:@MSITStore:" + sPath + "\CicodeReference.chm::/Cicode_and_General_Errors.html";
+   		Exec(sPath, 1);	
+	END
+	RETURN 0;
+END
+
+/*	_tagHelpEx()
+**
+**  Bring up help preferably at cicode table
+*/
+
+INT
+FUNCTION
+_tagExtHelpEx()
+	STRING sPath;
+
+	// Open Help at Cicode Error Codes - v6.10 does not have a mapid instance for cicode errors
+	// so not much can be done
+	// http://www.keyworks.net/keyhh.htm is available as a 3rd party product to open a CHM 
+	// at a topic but is non standard
+	// Ideally show "Cicode Programming Reference > Cicode Errors > Cicode and General Errors" directly
+	sPath = ParameterGet("ctedit", "bin", "");
+	IF sPath = "" THEN 
+		Exec("hh CitectSCADA.chm", 1);
+	ELSE
+		sPath = "hh mk:@MSITStore:" + sPath + "\CitectSCADA.chm::/Tag_Extensions.html";
+   		Exec(sPath, 1);	
+	END
+	RETURN 0;
+END
+
+/*	_tagExtraInfo()
+**
+**  Check if tag has changed and bring up extra info
+**  If tag has changed but no read or write has been done, then flag this as well
+*/
+INT
+FUNCTION
+_tagExtraInfo()
+
+	STRING sInfo;
+	STRING sInfoUnits;
+	INT    nRawType;
+	STRING sType;
+	STRING sExtendedTag;
+
+	IF sTag <> sTagPrev OR sTagExtension <> sTagExtensionPrev THEN
+		nElements = 1;
+		sInfo = TagInfoEx(sTag, 0, "", 0);
+		
+		IF _validateTagExtension() = 0 THEN
+			RETURN 274;    //invalid argument
+		END
+		
+   		IF StrLeft(sTagExtension, 1) = "." THEN
+   			sExtendedTag = sTag + sTagExtension;
+   		ELSE
+   			sExtendedTag = sTag;
+   		END
+   		
+		IF sInfo <> "" THEN
+			// Tag exists case
+			// ErrLog("tagExtraInfo tag exists " + sInfo );  		
+		   	nElements = StrToInt(TagInfo(sTag, 14));
+		   	nRawType = StrToInt(TagInfo(sTag, 10));
+		   	sType = _tagRawTypeToString(nRawType);
+		   	IF nElements > 1 THEN
+		   		// Array handling
+		   		nArrayItem = 0;
+		   		sArrayIndex = "0";
+		   		sType = "Tag Type: " + sType;
+				FormSetText(hForm, hFieldArray, sType);
+				sTagArraySuffix = "[" + IntToStr(nArrayItem) + "]";
+				sTagEx = sExtendedTag;
+			ELSE
+		   		// Not an array
+		   		nArrayItem = 0;
+		   		sArrayIndex = "N/A";
+		   		sType = "Tag Type: " + sType;
+		   		sTagArraySuffix = "";
+				FormSetText(hForm, hFieldArray, sType);
+				sTagEx = sExtendedTag;
+		   	END
+		   	
+		    IF TagInfo(sTag, 2) <> "" THEN
+				sInfo = "EngScale: RZ " + TagInfo(sTag, 2);
+				sInfo = sInfo + " RF " + TagInfo(sTag, 3);
+				sInfo = sInfo + " EZ " + TagInfo(sTag, 4);
+				sInfo = sInfo + " EF " + TagInfo(sTag, 5);
+			ELSE
+				sInfo = "EngScale: None";
+			END	
+				
+		    IF TagInfo(sTag, 1) <> "" THEN
+				sInfoUnits = "EngUnits: " + TagInfo(sTag, 1);
+			ELSE
+				sInfoUnits = "EngUnits: None";
+			END	
+		ELSE
+			// No Tag case
+			// ErrLog("tagExtraInfo tag does not exist" );  		
+
+		   	nArrayItem = 0;
+		   	sArrayIndex = "N/A";
+			FormSetText(hForm, hFieldArray, "Not found");
+			sInfo = "EngScale: N/A";
+			sInfoUnits = "EngUnits: N/A";
+			sTagEx = sExtendedTag;
+		END
+
+		FormSetText(hForm, hTagLeadRow, "Base tag: " + sTagEx);
+		FormSetText(hForm, hFieldTagInfo, sInfo);
+    	FormSetText(hForm, hFieldTagInfo2, sInfoUnits);
+    	FormSetText(hForm, hFieldTagUnitStatus, " ");
+   		sValue = "";
+   		FormSetData(hForm);
+   		  		
+   		sTagPrev = sTag;
+   		sTagExtensionPrev = sTagExtension;
+   		
+   		// ErrLog("tagExtraInfo called sTagEx= " + sTagEx);  		
+	END
+	
+	IF sArrayIndexPrev <> sArrayIndex THEN
+	   	// We have to repeat this in case the name has not changed
+   		IF StrLeft(sTagExtension, 1) = "." THEN
+   			sExtendedTag = sTag + sTagExtension;
+   		ELSE
+   			sExtendedTag = sTag;
+   		END 
+	   		
+	   	IF nElements > 1 THEN
+  		
+	   	    IF StrSearch(0, sTag, "[") < 0 THEN
+	   	    	// Base element name in use
+	   	    	nArrayItem = StrToInt(sArrayIndex);
+	   	    	sTagArraySuffix = "[" + IntToStr(nArrayItem) + "]";
+				sTagEx = sExtendedTag;
+				FormSetText(hForm, hFieldArraySize, "Array: [" + IntToStr(nElements) + "]");
+			ELSE
+				// User has added an offset [x]
+				sTagEx = sTag;
+				sTagArraySuffix = "";
+				sArrayIndex = "0";	// Force zero as user has specified an offset
+			END
+		ELSE
+	   		// Not an array
+	   		nArrayItem = 0;
+	   		sArrayIndex = "N/A";
+	   		FormSetText(hForm, hFieldArraySize, " ");
+	   		sTagEx = sExtendedTag;
+	   	END
+		FormSetText(hForm, hTagLeadRow, "Base tag: " + sTagEx + sTagArraySuffix);
+	    FormSetData(hForm);
+    
+    	sArrayIndexPrev = sArrayIndex;
+    END
+	RETURN 0;
+END
+
+/*	_tagRawTypeToString()
+**
+**  Return the Raw Type for a tag as a string
+*/
+
+STRING
+FUNCTION
+_tagRawTypeToString(INT  nRawType)
+
+    // These cases are for the old style RDT_XXX data types
+    
+	SELECT CASE  nRawType
+	CASE 0
+		RETURN "Digital";
+	CASE 1,3,10
+		RETURN "Int";
+	CASE 4,5,18
+		RETURN "Long";
+	CASE 2,6
+		RETURN "Real"; 
+	CASE 7
+		RETURN "String";
+	CASE 8
+		RETURN "Byte"; 
+	
+	END SELECT
+	
+	RETURN "Unknown";
+	
+END
+
+/*	_tagStartDebugReadEx()
+**
+**  Run task for regular reads at 1s
+*/
+
+INT
+FUNCTION
+_tagStartDebugReadEx()
+	INT nChar = 0;				//ASCII code of character
+	INT i = 0;
+	INT length = 0;
+	
+	FormGetData(hForm);
+	bTagUpdate = 1;
+	IF _tagExtraInfo() = 274 THEN
+		RETURN 274; //Invalid Argument
+	END
+	
+	length = StrLength(sPeriodMS);
+	
+	FOR i = 0 TO length - 1 DO
+		nChar = StrGetChar(sPeriodMS, i);
+		IF nChar < 48 OR nChar > 57 THEN	//character is not numeric
+			FormSetText(hForm, hFieldValue, "Invalid input for Auto-Read."); 
+			RETURN 0;
+		END
+	END
+	
+	nPeriodicRead = StrToInt(sPeriodMS);
+	FormSetText(hForm, hFieldStop, " " + "@(Stop Read)" + " ");
+	hTaskHandle = TaskNew("_tagReadTask", 0, 10);
+		
+	RETURN 0;
+END
+
+/*	_tagReadTask()
+**
+**  Do the read
+*/
+INT
+FUNCTION
+_tagReadTask()
+
+	STRING sLocalTag = sTagEx;
+	
+	WHILE (nPeriodicRead <> 0) DO
+
+   		FormSetText(hForm, hFieldReadPer, "Reading...");
+   		FormSetData(hForm);
+   		IF nPeriodicRead > 200 THEN
+   			SleepMS(200);
+   		END
+		_tagDebugSingleReadEx();
+		FormSetText(hForm, hFieldReadPer, "Reading   ");
+		FormSetData(hForm);
+   		IF nPeriodicRead > 200 THEN		
+			SleepMS(nPeriodicRead - 200);
+		ELSE
+			SleepMS(nPeriodicRead);			
+		END
+		
+		// This takes care of the case where the form is closed or tag changed
+
+		IF NOT FormActive(hForm) OR (sTagEx <> sLocalTag) THEN
+			_tagStopDebugReadEx();
+		END 
+	END
+	hTaskHandle = -1;
+	
+	RETURN 0;
+END
+
+/*	_tagStopDebugReadEx()
+**
+**  Stop the reading process
+*/
+INT
+FUNCTION
+_tagStopDebugReadEx()
+
+	sReadIndicator = "0";
+    FormSetText(hForm, hFieldReadPer, " " + "@(Auto Read)" + " ");
+    FormSetText(hForm, hFieldStop, " " + "@(Stop Read)" + " ");
+    IF hTaskHandle >= 0 AND nPeriodicRead > 0 THEN
+        // i.e. task must be active
+		TaskKill(hTaskHandle);
+		hTaskHandle = -1;
+	END
+	nPeriodicRead = 0;
+	
+	RETURN 0;
+END
+
+INT 
+FUNCTION
+_tagDebugReadEx()
+
+	_tagStopDebugReadEx();
+	_tagDebugSingleReadEx();
+	
+	RETURN 0;
+END
+
+/*
+**      _tagDebugSingleReadEx()
+**
+**      Callback for Read button. This function will read the tag
+**	from the I/O Device and display on the form.
+*/
+
+INT
+FUNCTION
+_tagDebugSingleReadEx()
+
+	STRING  	sQT;
+	TIMESTAMP 	TagTimeStamp;
+	QUALITY		TagQuality;
+	
+	bTagUpdate = 1;
+	FormGetData(hForm);
+	ErrSet(1);
+	IF _tagExtraInfo() = 274 THEN
+		ErrSet(0);
+		RETURN 274;
+	END
+	_tagDebugUpdateTime();
+
+	// ErrLog("Read tag: " + sTagEx + " Suffix: " + sTagArraySuffix);
+
+	sValue = TagRead(sTagEx + sTagArraySuffix);
+	_tagDebugErrorEx();
+	TagQuality = TagReadEx(sTagEx + ".Q" + sTagArraySuffix, 0);
+	TagTimeStamp = TagReadEx(sTagEx + ".QT" + sTagArraySuffix, 0);
+	sQT = ".Q= " + QualityToStr(TagQuality , -1, 0);
+	sQT = sQT + ", .QT= " + TimestampFormat(TagTimeStamp, "yyyy/MM/dd HH:mm:ss.fff");
+	TagTimeStamp = TagReadEx(sTagEx + ".VT" + sTagArraySuffix, 0);
+	sQT = sQT + ", .VT= " + TimestampFormat(TagTimeStamp, "yyyy/MM/dd HH:mm:ss.fff");
+	TagTimeStamp = TagReadEx(sTagEx + ".T" + sTagArraySuffix, 0);
+	sQT = sQT + ", .T= " + TimestampFormat(TagTimeStamp, "yyyy/MM/dd HH:mm:ss.fff");
+	FormSetText(hForm, hFieldTagQT, sQT);
+
+	FormSetData(hForm);
+
+	ErrSet(0);
+	RETURN	0;
+END
+
+
+/*
+**      _tagDebugWriteEx()
+**
+**      Callback for Write button. This function will write to the
+**	I/O Device from the value in the form.
+**  And record the write in the syslog.
+*/
+
+INT
+FUNCTION
+_tagDebugWriteEx()
+	STRING sTrace;
+	STRING sHoldValue;
+
+	_tagStopDebugReadEx();
+	bTagUpdate = 1;
+    FormGetData(hForm);
+    ErrSet(1);
+	sHoldValue = sValue;			// _tagExtraInfo() will wipe out sValue
+   	IF _tagExtraInfo() = 274 THEN
+		ErrSet(0);
+   		RETURN 274;
+   	END
+	sValue = sHoldValue;
+ 	_tagDebugUpdateTime();
+   	
+   	// Vetting of this operation by having a logged in user, e.g. FullName() or UserInfo(x)
+   	// can be done here
+   	
+	IsError();
+    TagWrite(sTagEx + sTagArraySuffix, sValue, 0, 1);		// sync call
+    _tagDebugErrorEx();
+    FormSetText(hForm, hFieldTagQT, " ");
+    
+   	FormSetData(hForm);
+   	
+   	// Record the change
+   	sTrace = " TagDebug() Write: User '" + FullName() + "' set tag '" + sTagEx + sTagArraySuffix + "' to value '" + sValue;
+   	IF nLastError = 0 THEN
+   		sTrace = sTrace + "' - NO ERROR";
+   	ELSE
+   		sTrace = sTrace + "' - ERROR " + IntToStr(nLastError);
+   	END
+   	ErrLog(sTrace);
+   	   	
+	ErrSet(0);
+	RETURN 0;
+END
+
+/*
+**      _tagDebugUpdateTime()
+**
+**      Update time of last read
+*/
+
+FUNCTION
+_tagDebugUpdateTime()
+	STRING 	sTime;
+	
+	sTime = TimestampToStr(TimestampCurrent(), 14);
+	FormSetText(hForm, hFieldLastTime, "Last user request: " + sTime);
+END
+
+/*
+**      _tagDebugFilter()
+**
+**      Setup query string for tag filtering
+*/
+
+INT
+FUNCTION
+_tagDebugFilter()
+	
+	IF NOT FormActive(hBrowse) THEN
+	
+		hBrowse = FormNew("@(TagDebug - TagFilter)", 60, 2, 9);
+		FormPrompt(0, 0,"Enter part of the tag name and click on '" + "@(OK) 'or ' Clear" + "' and Close(X)");
+		FormEdit(0, 1, sQuery, 42);
+		FormButton(43, 1, "  " + "@(OK)" + "   ", _tagDebugFilterDo, 1);
+		FormButton(52, 1, " " + "@(Clear)" + " ", _tagDebugFilterClear, 1);
+		FormSetData(hBrowse);
+		FormRead(0);
+		hBrowse = -1;
+		
+	END
+		
+	RETURN 0;
+END
+
+/*
+**      _tagDebugFilterDo()
+**
+**      Read tag list based on filter provided. Filter is any part of the tags name.
+*/
+
+INT
+FUNCTION
+_tagDebugFilterDo()
+	STRING sCopy;
+
+	FormGetData(hBrowse);
+	_tagDebugFillTagListEx(sQuery);
+	bTagUpdate = 0;
+	RETURN 0;
+END
+
+/*
+**      _tagDebugFillTagExtension()
+**
+**      Set up combox box
+*/
+
+INT
+FUNCTION
+_FillTagExtension()
+	STRING sCopy;
+	INT i = 0;
+	
+	FormAddList("   ");		
+	FOR i = 0 TO 5 DO
+		FormAddList(sTagExtArray[i]);
+	END
+	bTagUpdate = 0;
+	RETURN 0;
+END
+
+/*
+**      _tagDebugFilterClear()
+**
+**      Reset tag list to startup
+*/
+
+INT
+FUNCTION
+_tagDebugFilterClear()
+
+	sQuery = "";
+	FormSetData(hBrowse);
+	FormGetData(hBrowse);
+	_tagDebugFillTagListEx(sQuery);
+	bTagUpdate = 0;
+	_tagExtraInfo();
+	RETURN 0;
+END
+
+/*
+**      _tagDebugFillTagListEx()
+**
+**      Fill form list with the first nMaxList Variable Tags. We limit the
+**	maximum number of variables, otherwise the list box is too
+**	large and hard to use.
+*/
+
+FUNCTION
+_tagDebugFillTagListEx(STRING sQueryArg)
+    INT		nTBHandle = -1;
+    INT     nStartupFlag = 0;
+    STRING  sQueryUpper = StrUpper(sQueryArg);
+    INT		nClusters = 0;
+    INT		hClustRDB = -1;
+    
+	IF sQueryPrev = ".start." THEN
+		nStartupFlag = 1;
+	ELSE
+		FormListDeleteText(hForm, hCombo, sTag);
+		sTag = "";
+	END
+	
+	hClustRDB = RdbOpen("_CLUSTER");
+	IF hClustRDB >= 0 THEN
+		nClusters = RdbNoRec(hClustRDB);	
+		RdbClose(hClustRDB);
+		hClustRDB = -1;
+	END
+	
+	IF sQueryUpper <> sQueryPrev THEN
+       	    IF nClusters > 1 THEN
+		    	nTBHandle = TagBrowseOpen("","CLUSTER,TAG","TAG:A","");
+	        ELSE
+		   	 	nTBHandle = TagBrowseOpen("","TAG","TAG:A","");
+			END
+    		IF nTBHandle >= 0 THEN		
+	       		IF NOT nStartupFlag THEN  
+		        	_tagDebugClearTagList(nClusters, nTBHandle, sQueryArg);
+		        END
+	          	
+	          	sQueryPrev = sQueryUpper;
+	          	
+	          	_tagDebugPopulateTagList(nStartupFlag, nClusters, nTBHandle, sQueryArg);  
+	          	
+	          	TagBrowseClose(nTBHandle);
+	    END
+    	
+    	IF sQueryArg <> "" THEN
+    		// Implies a filter exists
+		   	sTagFilterIndicator = "  F  ";
+		ELSE
+			// No filter and TAG count < nMaxList 
+		   	sTagFilterIndicator = "  *  "; 
+		END
+		FormSetText(hForm, hFieldFilter, sTagFilterIndicator);
+		
+		FormSetData(hForm);
+    END        	
+ END
+
+/*
+**	FUNCTION NAME: _tagDebugIODeviceInfo
+**
+**	Get the device name and network number for the logical unit number.
+*/
+
+FUNCTION
+_tagDebugIODeviceInfo(INT nLog)
+    INT     nRec = -1;
+    INT     hRDB = -1;
+    STRING  sInfo = "";
+
+    hRDB = RdbOpen("_UNITS");
+    IF hRDB >= 0 THEN
+       nRec = RdbPosRec(hRDB, nLog);
+       IF nRec >=0 THEN
+          sTagDevName = RdbGet(hRDB, "Name");
+          sTagDevNetworkNum = RdbGet(hRDB, "Number");
+       END
+       RdbClose(hRDB);        
+    END
+END
+
+/*
+**	FUNCTION NAME: _tagDebugStatus
+**
+**	This returns the status of the device the tag is on
+**
+*/
+
+INT
+FUNCTION
+_tagDebugStatus()
+	STRING  sTagName = "";
+	INT     nNumber = 0;
+	STRING	sClusterName = "";
+	INT		hVarRDB = -1;
+	STRING	sInfo = "";
+	INT		nRec = -1;
+	STRING	sTagVarRDB = "";
+	STRING	sClusterVarRDB = "";
+	INT		bTagMatch = 0;
+	INT		sUnitVarRDB = "";
+	INT		nLogNumber = -1;
+	
+	sTagName = StrLower(TagInfo(sTag, 0));
+	sClusterName = StrLower(TagInfo(sTag, 17));
+	IF sTagName <> "" THEN
+		hVarRDB = RdbOpen("_VARIABL");
+		IF hVarRDB >= 0 THEN
+			nRec = RdbFirstRec(hVarRDB);
+			WHILE nRec >= 0 AND bTagMatch = 0 DO
+				sTagVarRDB = StrLower(RdbGet(hVarRDB, "Tag"));
+				IF sTagVarRDB = sTagName THEN
+					sClusterVarRDB = StrLower(RdbGet(hVarRDB, "Cluster"));
+					IF sClusterVarRDB <> "" THEN
+						IF sClusterVarRDB = sClusterName THEN
+							sUnitVarRDB = RdbGet(hVarRDB, "LogicalUni");
+							bTagMatch = 1;
+						END
+					ELSE
+						IF sClusterName = StrUpper(ClusterFirst()) THEN
+							sUnitVarRDB = RdbGet(hVarRDB, "LogicalUni");
+							bTagMatch = 1;
+						END
+					END
+				END
+				nRec = RdbNextRec(hVarRDB);	
+			END
+		END
+		nLogNumber = StrToInt(sUnitVarRDB);
+														
+		_tagDebugIODeviceInfo(nLogNumber);
+		
+		nNumber = StrToInt(sTagDevNetworkNum);		
+								
+		IF nNumber >= 0 THEN
+			sInfo = "Device " + _tagDebugDevStatus(sTagDevName, sClusterName) + ", network number is " + sTagDevNetworkNum;
+		ELSE
+			sInfo = "Internal logical number " + sTagDevNetworkNum + " not found";
+		END
+	ELSE
+		sInfo = "Unable to determine unit, tag does not exist?";
+	END
+	FormSetText(hForm, hFieldTagUnitStatus, sInfo); 			
+	RETURN 0;
+
+END
+
+/*
+**	FUNCTION Name: _tagDebugDevStatus
+**
+**	This returns the status of the device 
+**
+*/
+
+STRING
+FUNCTION
+_tagDebugDevStatus(STRING sLogUnit, STRING sCluster)
+	
+	INT		nStatus = 0;
+	STRING 	sReturn = "";
+	
+	ErrSet(1);
+	
+	IF sLogUnit = "" THEN
+		sReturn = "^"<Memory>^" Status is ";		! Handle bug in returning memory items
+	ELSE
+		sReturn = "^"" + sLogUnit + "^" Status is ";
+	END
+	nStatus = StrToInt(IODeviceInfo(sLogUnit, 3, sCluster));		! Client side status
+	
+	IF nStatus BITAND 4 THEN
+		sReturn = sReturn + "STARTING";
+	END
+	IF nStatus BITAND 8 THEN
+		sReturn = sReturn + "STOPPING";
+	END 
+	IF nStatus BITAND 16 THEN
+		sReturn = sReturn + "OFFLINE";
+	END
+	IF nStatus BITAND 32 THEN
+		sReturn = sReturn + "DISABLED";
+	END
+	 
+	IF nStatus BITAND 66 THEN
+		sReturn = sReturn + "STANDBY_WRITE";
+	ELSE
+	    IF (nStatus = 0) OR (nStatus BITAND 1) THEN 
+	        // Memory devices have a bug which returns 0
+			sReturn = sReturn + "ONLINE";
+		ELSE 
+			IF nStatus BITAND 2 THEN
+				sReturn = sReturn + "ONLINE-STANDBY";
+			END
+		END 
+	END
+	
+	IF nStatus BITAND 128 THEN
+		sReturn = sReturn + "REMOTE";
+	END
+	
+	ErrSet(0);
+	RETURN sReturn;
+
+END
+
+/*
+**	FUNCTION Name: _validateTagExtension
+**
+**	This function validates user input for tag extension
+**
+*/
+INT
+FUNCTION
+_validateTagExtension()
+INT i = 0;
+	
+	IF StrLength(sTagExtension) = 0 THEN
+		RETURN 1;
+	END
+	
+	IF StrLeft(sTagExtension, 1) = " " AND StrLength(StrTrim(sTagExtension)) = 0 THEN
+		RETURN 1;
+	END
+	
+	FOR i = 0 TO 5 DO
+		IF StrLeft(sTagExtension, 1) = "." AND StrLower(StrTrim(sTagExtension)) = StrLower(sTagExtArray[i]) THEN
+			sTagExtension = StrTrim(sTagExtension);
+			RETURN 1;
+		END
+	END
+	FormListDeleteText(hForm, hTagExtension, sTagExtension);
+	sTagExtension = "";
+	FormSetText(hForm, hFieldValue, "Invalid input for tag extension.");
+
+	RETURN 0;
+END
+
+/*
+**	FUNCTION Name: _tagDebugClearTagList
+**
+**	This function clears tag list
+**
+*/
+FUNCTION
+_tagDebugClearTagList(INT nClusters, INT nTBHandle, STRING sQueryArg)
+	INT 	nTagRead = 0;
+	STRING	sTagName = "";
+	STRING  sTagNameUpper = "";
+	STRING  sQueryUpper = StrUpper(sQueryArg);
+	INT		nTBResult = -1;
+	INT		nTagNumRecords = 0;
+	
+	IF nTBHandle >= 0 THEN
+		nTagNumRecords = TagBrowseNumRecords(nTBHandle);
+		IF nTagNumRecords > 0 THEN
+			nTBResult = TagBrowseFirst(nTBHandle);
+			nTagRead = 1;
+			WHILE nTagRead < nTagNumRecords AND nTBResult <> -1 DO
+				IF nClusters > 1 THEN
+	            	sTagName = TagBrowseGetField(nTBHandle, "CLUSTER") + "." + TagBrowseGetField(nTBHandle, "TAG");
+	            ELSE
+	                sTagName = TagBrowseGetField(nTBHandle, "TAG");
+	            END
+	            sTagNameUpper = StrUpper(sTagName);
+	            IF sQueryUpper = "" OR StrSearch(0, sTagNameUpper, sQueryPrev) >= 0 THEN
+					FormListDeleteText(hForm, hCombo, sTagName); 
+				END
+				nTBResult = TagBrowseNext(nTBHandle); 
+	            nTagRead = nTagRead + 1;
+			END
+		END
+	END
+END
+
+/*
+**	FUNCTION Name: _tagDebugPopulateTagList
+**
+**	This function populates tag list
+**
+*/
+FUNCTION
+_tagDebugPopulateTagList(INT nStartupFlag, INT nClusters, INT nTBHandle, STRING sQueryArg)
+	INT		nTagRead = 0;
+	INT 	nListItemAdded = 0;
+	STRING	sTagName = "";
+	STRING  sTagNameUpper = "";
+	STRING  sQueryUpper = StrUpper(sQueryArg);
+	INT		nTBResult = -1;
+	INT		nTagNumRecords = 0;
+	
+	IF nTBHandle >= 0 THEN
+		nTagNumRecords = TagBrowseNumRecords(nTBHandle);
+		IF nTagNumRecords > 0 THEN	
+			nTBResult = TagBrowseFirst(nTBHandle);
+			nTagRead = 1;
+			WHILE nTagRead < nTagNumRecords AND nListItemAdded < nMaxList AND nTBResult <> -1 DO
+				IF nClusters > 1 THEN
+			   		sTagName = TagBrowseGetField(nTBHandle, "CLUSTER") + "." + TagBrowseGetField(nTBHandle, "TAG");
+			   	ELSE
+			   		sTagName = TagBrowseGetField(nTBHandle, "TAG");
+			   	END			
+			   	sTagNameUpper = StrUpper(sTagName);
+			   	IF sQueryUpper = "" OR StrSearch(0, sTagNameUpper, sQueryUpper) >= 0 THEN
+			   		IF nStartupFlag THEN
+			   			FormAddList(sTagName);
+			   		ELSE
+			   			FormListAddText(hForm, hCombo, sTagName);
+			   		END
+			   		nListItemAdded = nListItemAdded + 1;
+			   		sTag = sTagName;
+			   	END
+			   	nTBResult = TagBrowseNext(nTBHandle);
+			   	nTagRead = nTagRead + 1; 	
+			END
+		END			
+	END
+END
+
+/*
+** End of TagDebugForm Code 
+*/
