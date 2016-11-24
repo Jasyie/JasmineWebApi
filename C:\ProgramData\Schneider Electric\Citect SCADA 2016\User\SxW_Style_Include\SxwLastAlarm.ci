@@ -1,0 +1,214 @@
+//--------------------------------------------------------------------------------
+//	Copyright © 2015 Schneider Electric (Australia) Pty Ltd. All rights reserved.
+//
+// 	FILE:		SxwLastAlarm.ci
+//
+//	SUMMARY:
+//
+//		Contains functions for enabling the last alarm panel on the base template.
+//
+//-----------------------------------------------------------------------------
+
+
+INT		nEXPAND_PIXELS				= 169;
+REAL	rSCALE_CORRECTION			= 1.0066666666667;
+
+INT		mnOriginalLastAlarmWidth	= -1;
+REAL	mrLastAlarmRect1Scale		= -1;
+REAL	mrLastAlarmRect2Scale		= -1;
+REAL	mrAlarmRowScale				= -1;
+INT		mbLastAlarmExpanded[100];
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:	SxwLastAlarm_OnLoad
+//
+//	SUMMARY:
+//		Resizes the last alarm table.
+//			
+//	PARAMETERS:
+//		sTableID - The ID of the alarm table.
+//
+//-----------------------------------------------------------------------------
+
+FUNCTION SxwLastAlarm_OnLoad(STRING sTableID)
+	
+	IF mnOriginalLastAlarmWidth > -1 THEN
+		LibTable_SetPropertyInt(sTableID, "Width", mnOriginalLastAlarmWidth + (SxwLastAlarm_Expanded() * nEXPAND_PIXELS));
+	END
+END
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:	SxwLastAlarm_Expanded
+//
+//	SUMMARY:
+//		Returns a value indicating whether the last alarm panel is expanded.
+//
+//	RETURNS:
+//		TRUE if the last alarm panel is expanded, otherwise FALSE.
+//			
+//-----------------------------------------------------------------------------
+
+INT FUNCTION SxwLastAlarm_Expanded()
+	
+	RETURN mbLastAlarmExpanded[WinNumber()];
+END
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:	SxwLastAlarm_ToggleWidth
+//
+//	SUMMARY:
+//		Toggles the width of the last alarm panel.
+//			
+//	PARAMETERS:
+//		sTableID - The ID of the alarm table.
+//
+//-----------------------------------------------------------------------------
+
+FUNCTION SxwLastAlarm_ToggleWidth(STRING sTableID)
+
+	IF mnOriginalLastAlarmWidth = -1 THEN
+		mnOriginalLastAlarmWidth = LibTable_GetPropertyInt(stableID, "Width");
+	END
+
+	IF mbLastAlarmExpanded[WinNumber()] THEN
+		mbLastAlarmExpanded[WinNumber()] = FALSE;
+		LibTable_SetPropertyInt(stableID, "Width", mnOriginalLastAlarmWidth);
+	ELSE
+		mbLastAlarmExpanded[WinNumber()] = TRUE;
+		LibTable_SetPropertyInt(stableID, "Width", mnOriginalLastAlarmWidth + nEXPAND_PIXELS);
+	END
+END
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:	SxwLastAlarm_GetExpandPixels
+//
+//	SUMMARY:
+//		Returns the number of pixels to expand the last alarm panel by.
+//
+//	RETURNS:
+//		The number of pixels to expand the last alarm panel by.
+//			
+//-----------------------------------------------------------------------------
+
+INT FUNCTION SxwLastAlarm_GetExpandPixels()
+
+	RETURN SxwLastAlarm_Expanded() * nEXPAND_PIXELS;
+END
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:	SxwLastAlarm_GetRect1Scale
+//
+//	SUMMARY:
+//		Returns the percentage to scale the first rectangle of the last alarm panel by.
+//
+//	PARAMETERS:
+//		nAN - The animation number of the rectangle.
+//
+//	RETURNS:
+//		The percentage to scale the first rectangle of the last alarm panel by.
+//			
+//-----------------------------------------------------------------------------
+
+REAL FUNCTION SxwLastAlarm_GetRect1Scale(INT nAN)
+
+	IF SxwLastAlarm_Expanded() THEN
+		IF mrLastAlarmRect1Scale = -1 THEN
+			// Calculate the scale percentage based on the original width of the object.
+			mrLastAlarmRect1Scale = _SxwLastAlarm_GetScale(DspGetAnWidth(nAN));
+		END
+		RETURN mrLastAlarmRect1Scale;
+	ELSE
+		RETURN 100;
+	END
+END
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:	SxwLastAlarm_GetRect2Scale
+//
+//	SUMMARY:
+//		Returns the percentage to scale the second rectangle of the last alarm panel by.
+//
+//	PARAMETERS:
+//		nAN - The animation number of the rectangle.
+//
+//	RETURNS:
+//		The percentage to scale the second rectangle of the last alarm panel by.
+//			
+//-----------------------------------------------------------------------------
+
+REAL FUNCTION SxwLastAlarm_GetRect2Scale(INT nAN)
+
+	IF SxwLastAlarm_Expanded() THEN
+		IF mrLastAlarmRect2Scale = -1 THEN
+			// Calculate the scale percentage based on the original width of the object.
+			mrLastAlarmRect2Scale = _SxwLastAlarm_GetScale(DspGetAnWidth(nAN));
+		END
+		RETURN mrLastAlarmRect2Scale;
+	ELSE
+		RETURN 100;
+	END
+END
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:	SxwLastAlarm_GetAlarmRowScale
+//
+//	SUMMARY:
+//		Returns the percentage to scale the last alarm row genie by.
+//
+//	PARAMETERS:
+//		nAN - The animation number of the last alarm row genie.
+//
+//	RETURNS:
+//		The percentage to scale the last alarm row genie by.
+//			
+//-----------------------------------------------------------------------------
+
+REAL FUNCTION SxwLastAlarm_GetAlarmRowScale(INT nAN)
+
+	IF SxwLastAlarm_Expanded() THEN
+		IF mrAlarmRowScale = -1 THEN
+			// Calculate the scale percentage based on the original width of the object.
+			mrAlarmRowScale = _SxwLastAlarm_GetScale(DspGetAnWidth(nAN));
+		END
+		RETURN mrAlarmRowScale;
+	ELSE
+		RETURN 100;
+	END
+END
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:	_SxwLastAlarm_GetScale
+//
+//	SUMMARY:
+//		Calculates the percentage to scale last alarm objects by given their original width.
+//
+//	PARAMETERS:
+//		nOriginalWidth - The original width of the object.
+//
+//	RETURNS:
+//		The percentage to scale the object by.
+//			
+//-----------------------------------------------------------------------------
+
+REAL FUNCTION _SxwLastAlarm_GetScale(INT nOriginalWidth)
+
+	// The percentage is multiplied by a correction factor otherwise the abjects aren't expanded by the correct number of pixels.
+	RETURN (IntToReal(nEXPAND_PIXELS) * rSCALE_CORRECTION / IntToReal(nOriginalWidth)) * 100.0 + 100.0;
+END
+
+

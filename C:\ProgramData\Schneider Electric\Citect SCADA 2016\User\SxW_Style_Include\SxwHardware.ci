@@ -1,0 +1,104 @@
+//--------------------------------------------------------------------------------
+//	Copyright © 2015 Schneider Electric (Australia) Pty Ltd. All rights reserved.
+//
+// 	FILE:		SxwHardware.ci
+//
+//	SUMMARY:
+//
+//		Contains functions for displaying hardware alarms.
+//
+//-----------------------------------------------------------------------------
+
+
+INT 	mnRowCount	= 0;
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:	SxwHardware_ScrollBarInit
+//
+//	SUMMARY:
+//		Stores the number of hardware alarms that can be displayed and sets the range on the scroll bar.
+//
+//	PARAMETERS:
+//		sScrollBarID	- The ID of the scroll bar that scrolls the hardware alarms.
+//		nRowCount		- The number of hardware alarms that ccan be displayed.
+//
+//-----------------------------------------------------------------------------
+
+FUNCTION SxwHardware_ScrollBarInit(STRING sScrollBarID, INT nRowCount)
+	
+	mnRowCount = nRowCount;
+	LibScrollBar_SetRange(sScrollBarID, nRowCount, AlarmActive(5));
+END
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:	SxwHardware_ScrollAlarms
+//
+//	SUMMARY:
+//		Scrolls the hardware alarms depending on the position of the scroll bar.
+//
+//	PARAMETERS:
+//		sScrollBarID	- The ID of the scroll bar that scrolls the hardware alarms.
+//		nAlarmList		- The animation number where the hardware alarms are displayed.
+//
+//-----------------------------------------------------------------------------
+
+FUNCTION SxwHardware_ScrollAlarms(STRING sScrollBarID, INT nAlarmList)
+
+	// Place a lock to prevent syncing the list and the scroll bar.
+	PageSetInt(sScrollBarID + "_lock", 1);
+	
+	// Position the alarm list offset. 
+	INT nPos = LibScrollBar_GetPropertyInt(sScrollBarID, "ItemPos");
+	AlarmSetInfo(nAlarmList, 1, IntToStr(nPos - 1));
+	
+	// Store the current position.
+	PageSetInt(sScrollBarID + "_LastPos", nPos);
+
+	// Remove sync lock.
+	PageSetInt(sScrollBarID + "_lock", 0);
+END
+
+
+//-----------------------------------------------------------------------------
+//
+//	FUNCTION NAME:	SxwHardware_ScrollBarSync
+//
+//	SUMMARY:
+//		Updates the position and range of the scroll bar as the number of hardware alarms change.
+//
+//	PARAMETERS:
+//		sScrollBarID	- The ID of the scroll bar that scrolls the hardware alarms.
+//		nAlarmList		- The animation number where the hardware alarms are displayed.
+//
+//-----------------------------------------------------------------------------
+
+FUNCTION SxwHardware_ScrollBarSync(STRING sScrollBarID, INT nAlarmList)
+
+	// If performing a scrolling then skip. 
+	INT lock = PageGetInt(sScrollBarID + "_lock");
+	IF (lock) THEN
+		RETURN;
+	END
+
+	INT nActiveAlarmCount = AlarmActive(5);
+	INT nAlarmListOffset = AlarmGetInfo(nAlarmList, 1) + 1;
+	
+	INT nScrollPos = PageGetInt(sScrollBarID + "_LastPos");
+	IF (nScrollPos = 0) THEN
+		nScrollPos = nAlarmListOffset;
+	END
+	
+	INT nScrollCount = LibScrollBar_GetPropertyInt(sScrollBarID, "ItemMax");
+	
+	// If alarms count and/or position changed (and there are enough items to display the scroll bar)
+	// then perform an update and set the new range.
+	IF (nAlarmListOffset <> nScrollPos) OR (nActiveAlarmCount <> nScrollCount AND nScrollCount >= mnRowCount) THEN
+		LibScrollBar_SetPos(sScrollBarID, nAlarmListOffset);
+		PageSetInt(sScrollBarID + "_LastPos", nAlarmListOffset);
+		LibScrollBar_SetRange(sScrollBarID, mnRowCount, nActiveAlarmCount);
+	END
+END
